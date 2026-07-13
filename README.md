@@ -1,98 +1,76 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# API de Gestión de Nómina
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Proyecto de diseño y desarrollo de una API RESTful para la gestión de nómina, implementada con una arquitectura modular.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Stack Tecnológico
 
-## Description
+El proyecto está construido sobre las siguientes tecnologías[cite: 1]:
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- **Framework:** NestJS (Node.js + TypeScript).
+- **Base de Datos:** PostgreSQL.
+- **ORM:** TypeORM.
+- **Validación:** `class-validator` y `class-transformer`.
+- **Autenticación:** `@nestjs/passport` y `passport-jwt`.
+- **Documentación:** `@nestjs/swagger`.
+- **Pruebas:** Jest + Supertest.
+- **Entorno Local:** Docker Compose.
 
-## Project setup
+## Cómo levantar el entorno local
 
-```bash
-$ npm install
-```
+Sigue estos pasos para ejecutar el proyecto en tu máquina:
 
-## Compile and run the project
+1. **Variables de entorno:** Copia el archivo de ejemplo y renómbralo. Luego, coloca tus credenciales locales (como tu clave secreta de JWT).
+   ```bash
+   cp .env.example .env
 
-```bash
-# development
-$ npm run start
+   ```
+2. Levantar la base de datos: Inicia el contenedor de PostgreSQL usando Docker.
+   ```bash
+   docker compose up -d
 
-# watch mode
-$ npm run start:dev
+   ```
+3. Instalar dependencias:
+   ```bash
+   npm install
 
-# production mode
-$ npm run start:prod
-```
+   ```
+4. Ejecutar el proyecto:
+   ```bash
+   npm run start:dev
+   ```
 
-## Run tests
+## Estructura de Carpetas
 
-```bash
-# unit tests
-$ npm run test
+El proyecto sigue una convención modular dentro de NestJS. Cada funcionalidad principal tiene su propio módulo independiente con sus respectivos Controladores, Servicios, DTOs y Entidades:
 
-# e2e tests
-$ npm run test:e2e
+- auth/ - Autenticación y roles.
 
-# test coverage
-$ npm run test:cov
-```
+- empleados/ - Gestión del personal.
 
-## Deployment
+- deducciones/ - Configuraciones de ley (ISSS, AFP, ISR).
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+- novedades/ - Horas extra, permisos, etc.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+- nomina/ - Ciclo de vida de la planilla.
+
+- comprobantes/ - Generación de recibos.
+
+## Documentación de la API (Swagger)
+
+Una vez levantado el servidor, puedes acceder a la documentación interactiva autogenerada ingresando a:
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+http://localhost:3000/api/docs
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Cada desarrollador debe documentar endpoints, parámetros y respuestas utilizando los decoradores de @nestjs/swagger directamente en el código
 
-## Resources
+## Fuentes Legales Citadas (El Salvador)
 
-Check out a few resources that may come in handy when working with NestJS:
+Los cálculos de este sistema se basan en la legislación vigente:
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+• Ministerio de Hacienda — Decreto Ejecutivo No. 10, tablas de retención de ISR: https://www.mh.gob.sv/modificacion-a-las-tablas-de-retencion-del-impuesto-sobre-la-renta-decreto-ejecutivo-no-10/
 
-## Support
+• Instituto Salvadoreño del Seguro Social — Art. 29 Ley del Seguro Social (cotización ISSS): https://www.isss.gob.sv/
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+• Superintendencia del Sistema Financiero — regulador de las AFP, Ley Integral del Sistema de Pensiones (cotización AFP): https://www.ssf.gob.sv/
