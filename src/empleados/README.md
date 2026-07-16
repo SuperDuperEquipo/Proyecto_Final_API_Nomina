@@ -3,7 +3,7 @@
 Este módulo se encarga de la gestión y administración del personal dentro del sistema de nómina.
 
 ## Información General
-- **Responsable:** Persona 1 (Susana Beltrán)
+- **Responsable:** Susana Beltrán
 - **Directorio del Módulo:** `src/empleados/`
 
 ---
@@ -15,7 +15,7 @@ Todos los endpoints (excepto las excepciones de roles) están protegidos mediant
 ### 1. Crear Empleado
 - **Ruta:** `POST /empleados`
 - **Permisos:** Solo usuarios con rol `ADMIN` o `RECURSOS_HUMANOS`.
-- **Cuerpo de la Petición (DTO):** [CreateEmpleadoDto](file:///c:/Users/susan/REPOSITORIES/Proyecto_Final_API_Nomina/src/empleados/dto/create-empleado.dto.ts)
+- **Cuerpo de la Petición (DTO):** `CreateEmpleadoDto`
   ```json
   {
     "nombre": "Juan Pérez",
@@ -31,7 +31,7 @@ Todos los endpoints (excepto las excepciones de roles) están protegidos mediant
   }
   ```
 - **Respuestas:**
-  - `201 Created`: Devuelve el empleado creado con el ID generado (UUID) y omitiendo el campo de contraseña por seguridad.
+  - `201 Created`: Devuelve el empleado creado con el ID generado (entero autoincremental) y omitiendo el campo de contraseña por seguridad.
   - `400 Bad Request`: Datos de entrada inválidos o faltantes.
   - `409 Conflict`: El DUI o el Correo ya existen en la base de datos.
 
@@ -51,7 +51,7 @@ Todos los endpoints (excepto las excepciones de roles) están protegidos mediant
 ### 4. Actualizar Empleado por ID
 - **Ruta:** `PATCH /empleados/:id`
 - **Permisos:** Solo `ADMIN` o `RECURSOS_HUMANOS`.
-- **Cuerpo de la Petición (DTO):** [UpdateEmpleadoDto](file:///c:/Users/susan/REPOSITORIES/Proyecto_Final_API_Nomina/src/empleados/dto/update-empleado.dto.ts) (campos opcionales).
+- **Cuerpo de la Petición (DTO):** `UpdateEmpleadoDto` (campos opcionales).
 - **Respuestas:**
   - `200 OK`: Datos actualizados del empleado.
   - `404 Not Found`: Empleado no encontrado.
@@ -68,9 +68,9 @@ Todos los endpoints (excepto las excepciones de roles) están protegidos mediant
 
 ## Decisiones de Negocio y Casos Borde
 
-1. **Uso de UUID para Identificadores:** Se optó por usar identificadores de tipo `UUID` (`@PrimaryGeneratedColumn('uuid')`) para asegurar que no se expongan correlativos en las URLs públicas y para facilitar futuras sincronizaciones distribuidas.
+1. **Identificadores Autoincrementales:** Se optó por usar identificadores numéricos enteros autoincrementales (`id: number`) para mayor simplicidad e interoperabilidad entre los diferentes módulos del proyecto final.
 2. **Formato estricto de DUI (El Salvador):** Mediante la validación de `class-validator` `@Length(10, 10)`, obligamos a que el DUI cumpla el estándar nacional de 8 dígitos, un guion y un dígito verificador (ej. `01234567-8`).
-3. **Seguridad y Encriptación:** Las contraseñas de los usuarios se almacenan utilizando `bcryptjs` con un factor de costo (salt rounds) de 10. Por seguridad, todos los métodos que retornan información del empleado (tanto individuales como listados) omiten explícitamente la contraseña mediante manipulación del objeto de respuesta o exclusión selectiva en base de datos.
+3. **Seguridad y Encriptación:** Las contraseñas de los usuarios se almacenan utilizando `bcryptjs` con un factor de costo (salt rounds) de 10. Por seguridad, todos los métodos que retornan información del empleado (tanto individuales como listados) omiten explícitamente la contraseña mediante manipulación del objeto de respuesta o exclusión selectiva en la base de datos.
 
 ---
 
