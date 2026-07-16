@@ -1,0 +1,264 @@
+{
+	"info": {
+		"_postman_id": "7864e262-d28f-4ba6-8610-c4468f760e1d",
+		"name": "API Gestión de Nómina",
+		"description": "Colección compartida para el desarrollo de la API de Gestión de Nómina. Contiene el esqueleto modular de todos los integrantes del equipo.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Autenticación",
+			"description": "Endpoints para el registro de empleados e inicio de sesión.",
+			"item": [
+				{
+					"name": "Registrar Empleado",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Susana Beltrán\",\n  \"dui\": \"01234567-8\",\n  \"email\": \"susana@nomina.com\",\n  \"password\": \"password123\",\n  \"salarioBase\": 1200.00,\n  \"cargo\": \"Desarrollador Backend\",\n  \"area\": \"Tecnología\",\n  \"fechaIngreso\": \"2026-07-15\",\n  \"afp\": \"AFP Crecer\",\n  \"rol\": \"ADMIN\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Iniciar Sesión",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"susana@nomina.com\",\n  \"password\": \"password123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Empleados",
+			"description": "Operaciones CRUD de empleados. Requiere token de portador JWT.",
+			"item": [
+				{
+					"name": "Crear Empleado",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Juan Pérez\",\n  \"dui\": \"00000001-2\",\n  \"email\": \"juan.perez@nomina.com\",\n  \"password\": \"juanito123\",\n  \"salarioBase\": 850.00,\n  \"cargo\": \"Auxiliar Contable\",\n  \"area\": \"Finanzas\",\n  \"fechaIngreso\": \"2026-07-15\",\n  \"afp\": \"AFP Confía\",\n  \"rol\": \"EMPLEADO\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/empleados",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"empleados"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener Todos los Empleados",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/empleados",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"empleados"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener Empleado por ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/empleados/colocar_id_aqui",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"empleados",
+								"colocar_id_aqui"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Actualizar Empleado",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"salarioBase\": 950.00,\n  \"cargo\": \"Encargado de Contabilidad\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/empleados/colocar_id_aqui",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"empleados",
+								"colocar_id_aqui"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar Empleado",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/empleados/colocar_id_aqui",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"empleados",
+								"colocar_id_aqui"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Deducciones",
+			"description": "Módulo asignado a Persona 2 (Deducciones e ISR).",
+			"item": []
+		},
+		{
+			"name": "Novedades",
+			"description": "Módulo asignado a Persona 3 (Horas extra, permisos, bonificaciones y descuentos).",
+			"item": []
+		},
+		{
+			"name": "Nómina",
+			"description": "Módulo asignado a Persona 4 (Planilla y ciclo de vida).",
+			"item": []
+		},
+		{
+			"name": "Comprobantes",
+			"description": "Módulo asignado a Persona 5 (Recibos e informes).",
+			"item": []
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "pega_el_token_aqui",
+			"type": "string"
+		}
+	]
+}
