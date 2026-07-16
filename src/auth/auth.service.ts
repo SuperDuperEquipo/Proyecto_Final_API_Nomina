@@ -1,26 +1,61 @@
-import { Injectable } from '@nestjs/common';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { EmpleadosService } from '../empleados/empleados.service';
+import { LoginDto } from './dto/login.dto';
+import { CreateEmpleadoDto } from '../empleados/dto/create-empleado.dto';
+import { EmpleadoRole } from '../empleados/entities/empleado.entity';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
-  create(createAuthDto: CreateAuthDto) {
-    return 'This action adds a new auth';
+  constructor(
+    private readonly empleadosService: EmpleadosService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  async register(createEmpleadoDto: CreateEmpleadoDto) {
+    // Buscar si ya existen empleados en el sistema.
+    // Si no existen empleados, obligar a que el primero sea ADMIN para bootstrapear la seguridad.
+    const allEmployees = await this.empleadosService.findAll();
+    if (allEmployees.length === 0) {
+      createEmpleadoDto.rol = EmpleadoRole.ADMIN;
+    }
+
+    if (!createEmpleadoDto.password) {
+      throw new ConflictException('Se requiere una contraseña para el registro de usuario.');
+    }
+
+    return this.empleadosService.create(createEmpleadoDto);
   }
 
-  findAll() {
-    return `This action returns all auth`;
-  }
+  async login(loginDto: LoginDto) {
+    const { email, password } = loginDto;
+    
+    // Buscar empleado por email incluyendo la contraseña en la consulta
+    const empleado = await this.empleadosService.findByEmailWithPassword(email);
+    if (!empleado || !empleado.password) {
+      throw new UnauthorizedException('Credenciales inválidas.');
+    }
 
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
-  }
+    const isPasswordValid = await bcrypt.compare(password, empleado.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Credenciales inválidas.');
+    }
 
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
-  }
+    const payload = { 
+      sub: empleado.id, 
+      email: empleado.email, 
+      rol: empleado.rol 
+    };
 
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
+    return {
+      access_token: this.jwtService.sign(payload),
+      user: {
+        id: empleado.id,
+        nombre: empleado.nombre,
+        email: empleado.email,
+        rol: empleado.rol,
+      },
+    };
   }
 }
