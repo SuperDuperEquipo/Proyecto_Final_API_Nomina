@@ -29,10 +29,10 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
+    const { documentoIdentidad, password } = loginDto;
     
-    // Buscar empleado por email incluyendo la contraseña en la consulta
-    const empleado = await this.empleadosService.findByEmailWithPassword(email);
+    // Buscar empleado por Documento de Identidad incluyendo la contraseña en la consulta
+    const empleado = await this.empleadosService.findByDocumentoIdentidadWithPassword(documentoIdentidad);
     if (!empleado || !empleado.password) {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
@@ -44,6 +44,8 @@ export class AuthService {
 
     const payload = { 
       sub: empleado.id, 
+      tipoDocumento: empleado.tipoDocumento,
+      documentoIdentidad: empleado.documentoIdentidad,
       email: empleado.email, 
       rol: empleado.rol 
     };

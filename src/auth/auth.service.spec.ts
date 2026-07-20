@@ -20,6 +20,7 @@ describe('AuthService', () => {
     findAll: jest.fn(),
     create: jest.fn(),
     findByEmailWithPassword: jest.fn(),
+    findByDocumentoIdentidadWithPassword: jest.fn(),
   };
 
   const mockJwtService = {
@@ -56,7 +57,8 @@ describe('AuthService', () => {
     it('should force rol ADMIN when registering the first employee', async () => {
       const dto: any = {
         nombre: 'Administrador del Sistema',
-        dui: '00000000-0',
+        tipoDocumento: 'DUI',
+        documentoIdentidad: '00000000-0',
         email: 'admin@nomina.com',
         password: 'adminPassword123',
         salarioBase: 2000,
@@ -81,7 +83,8 @@ describe('AuthService', () => {
     it('should keep the provided rol when there are already employees registered', async () => {
       const dto: any = {
         nombre: 'Juan Pérez',
-        dui: '00000001-2',
+        tipoDocumento: 'DUI',
+        documentoIdentidad: '00000001-2',
         email: 'juan@nomina.com',
         password: 'password123',
         salarioBase: 850,
@@ -106,7 +109,8 @@ describe('AuthService', () => {
     it('should throw ConflictException if password is not provided', async () => {
       const dto: any = {
         nombre: 'Juan Pérez',
-        dui: '00000001-2',
+        tipoDocumento: 'DUI',
+        documentoIdentidad: '00000001-2',
         email: 'juan@nomina.com',
         salarioBase: 850,
         cargo: 'Auxiliar',
@@ -123,19 +127,21 @@ describe('AuthService', () => {
 
   describe('login', () => {
     const loginDto = {
-      email: 'admin@nomina.com',
+      documentoIdentidad: '00000000-0',
       password: 'adminPassword123',
     };
 
     it('should throw UnauthorizedException if employee is not found', async () => {
-      empleadosService.findByEmailWithPassword.mockResolvedValue(null);
+      empleadosService.findByDocumentoIdentidadWithPassword.mockResolvedValue(null);
 
       await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
     });
 
     it('should throw UnauthorizedException if employee has no password set', async () => {
-      empleadosService.findByEmailWithPassword.mockResolvedValue({
+      empleadosService.findByDocumentoIdentidadWithPassword.mockResolvedValue({
         id: 1,
+        tipoDocumento: 'DUI',
+        documentoIdentidad: '00000000-0',
         email: 'admin@nomina.com',
         password: null,
       });
@@ -144,8 +150,10 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException if password comparison fails', async () => {
-      empleadosService.findByEmailWithPassword.mockResolvedValue({
+      empleadosService.findByDocumentoIdentidadWithPassword.mockResolvedValue({
         id: 1,
+        tipoDocumento: 'DUI',
+        documentoIdentidad: '00000000-0',
         email: 'admin@nomina.com',
         password: 'hashed_password',
       });
@@ -158,12 +166,14 @@ describe('AuthService', () => {
       const user = {
         id: 1,
         nombre: 'Administrador del Sistema',
+        tipoDocumento: 'DUI',
+        documentoIdentidad: '00000000-0',
         email: 'admin@nomina.com',
         password: 'hashed_password',
         rol: EmpleadoRole.ADMIN,
       };
 
-      empleadosService.findByEmailWithPassword.mockResolvedValue(user);
+      empleadosService.findByDocumentoIdentidadWithPassword.mockResolvedValue(user);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       jwtService.sign.mockReturnValue('jwt-token-xyz');
 
@@ -171,6 +181,8 @@ describe('AuthService', () => {
 
       expect(jwtService.sign).toHaveBeenCalledWith({
         sub: user.id,
+        tipoDocumento: user.tipoDocumento,
+        documentoIdentidad: user.documentoIdentidad,
         email: user.email,
         rol: user.rol,
       });

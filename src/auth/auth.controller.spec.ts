@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { CreateEmpleadoDto } from '../empleados/dto/create-empleado.dto';
 import { LoginDto } from './dto/login.dto';
 import { EmpleadoRole } from '../empleados/entities/empleado.entity';
+import { TipoDocumento } from '../empleados/entities/tipo-documento.enum';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -39,7 +40,8 @@ describe('AuthController', () => {
     it('should call authService.register and return the registered employee info', async () => {
       const dto: CreateEmpleadoDto = {
         nombre: 'Administrador del Sistema',
-        dui: '00000000-0',
+        tipoDocumento: TipoDocumento.DUI,
+        documentoIdentidad: '00000000-0',
         email: 'admin@nomina.com',
         password: 'adminPassword123',
         salarioBase: 2000,
@@ -53,7 +55,8 @@ describe('AuthController', () => {
       const expectedResult = {
         id: 1,
         nombre: dto.nombre,
-        dui: dto.dui,
+        tipoDocumento: dto.tipoDocumento,
+        documentoIdentidad: dto.documentoIdentidad,
         email: dto.email,
         salarioBase: dto.salarioBase,
         cargo: dto.cargo,
@@ -75,7 +78,7 @@ describe('AuthController', () => {
   describe('login', () => {
     it('should call authService.login and return token and user info', async () => {
       const dto: LoginDto = {
-        email: 'admin@nomina.com',
+        documentoIdentidad: '00000000-0',
         password: 'adminPassword123',
       };
 
@@ -84,7 +87,7 @@ describe('AuthController', () => {
         user: {
           id: 1,
           nombre: 'Administrador del Sistema',
-          email: dto.email,
+          email: 'admin@nomina.com',
           rol: EmpleadoRole.ADMIN,
         },
       };
