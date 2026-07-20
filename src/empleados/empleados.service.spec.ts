@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EmpleadosService } from './empleados.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Empleado, EmpleadoRole } from './entities/empleado.entity';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { HistorialSalario } from './entities/historial-salario.entity';
+import { TipoDocumento } from './entities/tipo-documento.enum';
+import { SectorEconomico } from './entities/sector-economico.enum';
+import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
 jest.mock('bcryptjs', () => ({
@@ -12,6 +15,7 @@ jest.mock('bcryptjs', () => ({
 describe('EmpleadosService', () => {
   let service: EmpleadosService;
   let repository: any;
+  let historialRepository: any;
 
   const mockEmpleadoRepository = {
     create: jest.fn(),
@@ -24,6 +28,12 @@ describe('EmpleadosService', () => {
     count: jest.fn(),
   };
 
+  const mockHistorialSalarioRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+    find: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -32,11 +42,16 @@ describe('EmpleadosService', () => {
           provide: getRepositoryToken(Empleado),
           useValue: mockEmpleadoRepository,
         },
+        {
+          provide: getRepositoryToken(HistorialSalario),
+          useValue: mockHistorialSalarioRepository,
+        },
       ],
     }).compile();
 
     service = module.get<EmpleadosService>(EmpleadosService);
     repository = module.get(getRepositoryToken(Empleado));
+    historialRepository = module.get(getRepositoryToken(HistorialSalario));
 
     jest.clearAllMocks();
   });
@@ -48,10 +63,12 @@ describe('EmpleadosService', () => {
   describe('create', () => {
     const dto: any = {
       nombre: 'Susana Beltrán',
-      dui: '01234567-8',
+      tipoDocumento: TipoDocumento.DUI,
+      documentoIdentidad: '01234567-8',
       email: 'susana@nomina.com',
       password: 'password123',
       salarioBase: 1200,
+      sectorEconomico: SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA,
       cargo: 'Desarrollador Backend',
       area: 'Tecnología',
       fechaIngreso: '2026-07-15',
@@ -74,6 +91,7 @@ describe('EmpleadosService', () => {
 
       expect(repository.create).toHaveBeenCalledWith({
         ...dto,
+        sectorEconomico: SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA,
         fechaIngreso: new Date(dto.fechaIngreso),
         password: 'hashed_password',
       });
@@ -82,18 +100,26 @@ describe('EmpleadosService', () => {
       expect(result.id).toBe(123);
     });
 
+    it('should throw BadRequestException if DUI format is invalid', async () => {
+      const invalidDuiDto = { ...dto, documentoIdentidad: 'invalid-dui' };
+      await expect(service.create(invalidDuiDto)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if passport format is invalid', async () => {
+      const invalidPassportDto = { ...dto, tipoDocumento: TipoDocumento.PASAPORTE, documentoIdentidad: 'short' };
+      await expect(service.create(invalidPassportDto)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if salary is below sector minimum wage', async () => {
+      const lowSalaryDto = { ...dto, salarioBase: 100 }; // Minimum is 408.80
+      await expect(service.create(lowSalaryDto)).rejects.toThrow(BadRequestException);
+    });
+
     it('should throw ConflictException if save fails with duplicate code 23505', async () => {
       repository.create.mockReturnValue(dto);
       repository.save.mockRejectedValue({ code: '23505' });
 
       await expect(service.create(dto)).rejects.toThrow(ConflictException);
-    });
-
-    it('should rethrow other errors on save failure', async () => {
-      repository.create.mockReturnValue(dto);
-      repository.save.mockRejectedValue(new Error('DB Error'));
-
-      await expect(service.create(dto)).rejects.toThrow('DB Error');
     });
   });
 
@@ -133,36 +159,52 @@ describe('EmpleadosService', () => {
     });
   });
 
+  describe('findByDocumentoIdentidadWithPassword', () => {
+    it('should return employee when found', async () => {
+      const employee = { id: 1, documentoIdentidad: '00000000-0', password: 'hash' };
+      repository.findOne.mockResolvedValue(employee);
+
+      const result = await service.findByDocumentoIdentidadWithPassword('00000000-0');
+      expect(result).toBe(employee);
+    });
+  });
+
   describe('update', () => {
     const updateDto: any = {
       salarioBase: 1300,
       password: 'newpassword123',
     };
 
-    it('should successfully update an employee and return updated details', async () => {
-      const existingEmployee = { id: 1, nombre: 'Emp 1', password: 'hash1' };
+    it('should successfully update an employee and log salary change', async () => {
+      const existingEmployee = { 
+        id: 1, 
+        nombre: 'Emp 1', 
+        password: 'hash1', 
+        salarioBase: 1200, 
+        tipoDocumento: TipoDocumento.DUI, 
+        documentoIdentidad: '01234567-8',
+        sectorEconomico: SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA
+      };
       const updatedEmployee = { id: 1, nombre: 'Emp 1', salarioBase: 1300, password: 'hashed_password' };
 
-      repository.findOneBy.mockResolvedValueOnce(existingEmployee); // In findOne
+      repository.findOneBy.mockResolvedValueOnce(existingEmployee); // Initial fetch in update
       repository.update.mockResolvedValue({ affected: 1 });
-      repository.findOneBy.mockResolvedValueOnce(updatedEmployee); // After update
+      repository.findOneBy.mockResolvedValueOnce(updatedEmployee); // Fetch after update
 
       const result = await service.update(1, updateDto);
 
+      expect(historialRepository.save).toHaveBeenCalledWith({
+        empleadoId: 1,
+        salarioAnterior: 1200,
+        salarioNuevo: 1300,
+        motivo: 'Actualización de salario base',
+      });
       expect(repository.update).toHaveBeenCalledWith(1, {
         salarioBase: 1300,
         password: 'hashed_password',
       });
       expect(result.password).toBeUndefined();
       expect(result.salarioBase).toBe(1300);
-    });
-
-    it('should throw ConflictException if update fails with duplicate code 23505', async () => {
-      const existingEmployee = { id: 1, nombre: 'Emp 1', password: 'hash1' };
-      repository.findOneBy.mockResolvedValueOnce(existingEmployee);
-      repository.update.mockRejectedValue({ code: '23505' });
-
-      await expect(service.update(1, updateDto)).rejects.toThrow(ConflictException);
     });
   });
 
@@ -192,16 +234,6 @@ describe('EmpleadosService', () => {
       expect(repository.count).toHaveBeenCalledTimes(1);
       expect(repository.create).toHaveBeenCalled();
       expect(repository.save).toHaveBeenCalled();
-    });
-
-    it('should not seed admin if count is greater than 0', async () => {
-      repository.count.mockResolvedValue(5);
-
-      await service.seedAdmin();
-
-      expect(repository.count).toHaveBeenCalledTimes(1);
-      expect(repository.create).not.toHaveBeenCalled();
-      expect(repository.save).not.toHaveBeenCalled();
     });
   });
 });

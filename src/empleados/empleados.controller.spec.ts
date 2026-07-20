@@ -4,6 +4,7 @@ import { EmpleadosService } from './empleados.service';
 import { CreateEmpleadoDto } from './dto/create-empleado.dto';
 import { UpdateEmpleadoDto } from './dto/update-empleado.dto';
 import { EmpleadoRole } from './entities/empleado.entity';
+import { TipoDocumento } from './entities/tipo-documento.enum';
 
 describe('EmpleadosController', () => {
   let controller: EmpleadosController;
@@ -42,7 +43,8 @@ describe('EmpleadosController', () => {
     it('should invoke service.create with dto and return the response', async () => {
       const dto: CreateEmpleadoDto = {
         nombre: 'Juan Pérez',
-        dui: '00000001-2',
+        tipoDocumento: TipoDocumento.DUI,
+        documentoIdentidad: '00000001-2',
         email: 'juan@nomina.com',
         password: 'password123',
         salarioBase: 850,

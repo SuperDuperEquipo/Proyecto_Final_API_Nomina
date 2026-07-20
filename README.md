@@ -4,7 +4,7 @@ Proyecto de diseño y desarrollo de una API RESTful para la gestión de nómina,
 
 ## Stack Tecnológico
 
-El proyecto está construido sobre las siguientes tecnologías[cite: 1]:
+El proyecto está construido sobre las siguientes tecnologías:
 
 - **Framework:** NestJS (Node.js + TypeScript).
 - **Base de Datos:** PostgreSQL.

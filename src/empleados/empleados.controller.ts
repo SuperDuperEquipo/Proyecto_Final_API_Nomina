@@ -33,6 +33,14 @@ export class EmpleadosController {
     return this.empleadosService.findAll();
   }
 
+  @ApiOperation({ summary: 'Obtener estadísticas de nacionalidad de empleados (Solo ADMIN y RECURSOS_HUMANOS)' })
+  @ApiResponse({ status: 200, description: 'Estadísticas y cumplimiento del límite del 90% del personal salvadoreño.' })
+  @Roles(EmpleadoRole.ADMIN, EmpleadoRole.RECURSOS_HUMANOS)
+  @Get('reporte/nacionalidad')
+  getNationalityStatistics() {
+    return this.empleadosService.getNationalityStatistics();
+  }
+
   @ApiOperation({ summary: 'Obtener un empleado por ID (Cualquier usuario autenticado)' })
   @ApiResponse({ status: 200, description: 'Detalle del empleado.' })
   @ApiResponse({ status: 404, description: 'Empleado no encontrado.' })
@@ -57,5 +65,14 @@ export class EmpleadosController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.empleadosService.remove(+id);
+  }
+
+  @ApiOperation({ summary: 'Obtener historial de cambios de salario de un empleado (Solo ADMIN y RECURSOS_HUMANOS)' })
+  @ApiResponse({ status: 200, description: 'Historial de salarios del empleado.' })
+  @ApiResponse({ status: 404, description: 'Empleado no encontrado.' })
+  @Roles(EmpleadoRole.ADMIN, EmpleadoRole.RECURSOS_HUMANOS)
+  @Get(':id/historial-salarios')
+  findSalaryHistory(@Param('id') id: string) {
+    return this.empleadosService.findSalaryHistory(+id);
   }
 }

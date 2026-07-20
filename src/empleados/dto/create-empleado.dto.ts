@@ -1,5 +1,7 @@
-import { IsNotEmpty, IsString, IsNumber, IsPositive, IsDateString, IsEmail, IsEnum, IsOptional, Length } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsPositive, IsDateString, IsEmail, IsEnum, IsOptional } from 'class-validator';
 import { EmpleadoRole } from '../entities/empleado.entity';
+import { TipoDocumento } from '../entities/tipo-documento.enum';
+import { SectorEconomico } from '../entities/sector-economico.enum';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateEmpleadoDto {
@@ -8,11 +10,15 @@ export class CreateEmpleadoDto {
   @IsString()
   nombre: string;
 
+  @ApiProperty({ enum: TipoDocumento, example: TipoDocumento.DUI, default: TipoDocumento.DUI })
+  @IsNotEmpty()
+  @IsEnum(TipoDocumento)
+  tipoDocumento: TipoDocumento;
+
   @ApiProperty({ example: '01234567-8' })
   @IsNotEmpty()
   @IsString()
-  @Length(10, 10, { message: 'El DUI debe tener exactamente 10 caracteres (ej. 00000000-0)' })
-  dui: string;
+  documentoIdentidad: string;
 
   @ApiProperty({ example: 'susana@nomina.com' })
   @IsNotEmpty()
@@ -22,8 +28,12 @@ export class CreateEmpleadoDto {
   @ApiProperty({ example: 'password123', required: false })
   @IsOptional()
   @IsString()
-  @Length(6, 50, { message: 'La contraseña debe tener entre 6 y 50 caracteres' })
   password?: string;
+
+  @ApiProperty({ enum: SectorEconomico, example: SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA, required: false, default: SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA })
+  @IsOptional()
+  @IsEnum(SectorEconomico)
+  sectorEconomico?: SectorEconomico;
 
   @ApiProperty({ example: 1200.00 })
   @IsNotEmpty()
@@ -46,10 +56,15 @@ export class CreateEmpleadoDto {
   @IsDateString()
   fechaIngreso: string;
 
-  @ApiProperty({ example: 'AFP Crecer' })
-  @IsNotEmpty()
+  @ApiProperty({ example: 'AFP Crecer', required: false })
+  @IsOptional()
   @IsString()
-  afp: string;
+  afp?: string;
+
+  @ApiProperty({ example: '123456789', required: false })
+  @IsOptional()
+  @IsString()
+  isss?: string;
 
   @ApiProperty({ enum: EmpleadoRole, example: EmpleadoRole.EMPLEADO, required: false })
   @IsOptional()

@@ -1,0 +1,5 @@
+export enum TipoDocumento {
+  DUI = 'DUI',
+  PASAPORTE = 'PASAPORTE',
+  CARNET_RESIDENCIA = 'CARNET_RESIDENCIA',
+}

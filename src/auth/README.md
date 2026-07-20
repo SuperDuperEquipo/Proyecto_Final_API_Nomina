@@ -23,7 +23,7 @@ Este módulo gestiona la seguridad del sistema mediante JSON Web Tokens (JWT) y 
 - **Cuerpo de la Petición (DTO):** `LoginDto`
   ```json
   {
-    "email": "admin@nomina.com",
+    "documentoIdentidad": "00000000-0",
     "password": "adminPassword123"
   }
   ```
@@ -48,9 +48,15 @@ Este módulo gestiona la seguridad del sistema mediante JSON Web Tokens (JWT) y 
 
 ## Decisiones de Negocio y Seguridad
 
-1. **Bootstrap de Seguridad (Primer Administrador):**
-   - Para evitar que la base de datos comience sin ningún administrador (imposibilitando la creación de nuevos empleados por medio del CRUD protegido), el método `register` del servicio de autenticación verifica si la tabla de empleados está vacía.
-   - Si no hay empleados registrados en el sistema, el primer usuario que se registre será forzado a tomar el rol de `ADMIN`, independientemente del rol enviado en la petición. Esto asegura un punto de entrada seguro para configurar la plataforma.
+1. **Semilla de Administrador (Seed Admin):**
+   - Al iniciar la aplicación, el gancho de ciclo de vida `OnApplicationBootstrap` en `EmpleadosService` verifica si la base de datos está vacía.
+   - Si no hay empleados registrados, se crea automáticamente un usuario administrador semilla con las siguientes credenciales para poder iniciar sesión inmediatamente:
+     - **Documento de Identidad (DUI):** `00000000-0`
+     - **Contraseña:** `adminPassword123`
+     - **Correo Electrónico:** `admin@nomina.com`
+     - **Rol:** `ADMIN`
+2. **Bootstrap de Seguridad (Primer Registro Manual):**
+   - Si la base de datos estuviera vacía (ej. si se borrara la semilla) y se realiza un registro manual mediante `POST /auth/register`, el sistema forzará a que ese primer usuario registrado tome el rol de `ADMIN`, independientemente del rol solicitado en el cuerpo de la petición. Esto asegura un punto de entrada seguro para configurar la plataforma.
 2. **Estrategia y Guardia JWT:**
    - La seguridad de las rutas se verifica extrayendo el token en la cabecera `Authorization: Bearer <token>` mediante `jwt.strategy.ts`.
    - Se inyecta la información recuperada en el objeto `req.user`.
