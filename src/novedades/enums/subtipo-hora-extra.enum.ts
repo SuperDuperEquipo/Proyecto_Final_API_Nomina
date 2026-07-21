@@ -1,0 +1,5 @@
+export enum SubtipoHoraExtra {
+  DIURNA = 'DIURNA',
+  NOCTURNA = 'NOCTURNA',
+  DIA_DESCANSO_O_ASUETO = 'DIA_DESCANSO_O_ASUETO',
+}
