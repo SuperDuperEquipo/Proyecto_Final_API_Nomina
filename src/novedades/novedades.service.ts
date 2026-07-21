@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateNovedadDto } from './dto/create-novedad.dto';
@@ -25,9 +29,13 @@ export class NovedadesService {
     empleadoId: number,
     nominaId: number,
   ): Promise<Nomina> {
-    const empleado = await this.empleadoRepository.findOneBy({ id: empleadoId });
+    const empleado = await this.empleadoRepository.findOneBy({
+      id: empleadoId,
+    });
     if (!empleado) {
-      throw new NotFoundException(`Empleado con ID "${empleadoId}" no encontrado.`);
+      throw new NotFoundException(
+        `Empleado con ID "${empleadoId}" no encontrado.`,
+      );
     }
 
     const nomina = await this.nominaRepository.findOneBy({ id: nominaId });
@@ -65,7 +73,11 @@ export class NovedadesService {
     return this.novedadRepository.save(novedad);
   }
 
-  async findAll(filtros?: { empleadoId?: number; nominaId?: number; tipo?: TipoNovedad }): Promise<Novedad[]> {
+  async findAll(filtros?: {
+    empleadoId?: number;
+    nominaId?: number;
+    tipo?: TipoNovedad;
+  }): Promise<Novedad[]> {
     const where: Record<string, unknown> = {};
     if (filtros?.empleadoId) where.empleadoId = filtros.empleadoId;
     if (filtros?.nominaId) where.nominaId = filtros.nominaId;
@@ -87,20 +99,30 @@ export class NovedadesService {
     if (!nomina) {
       throw new NotFoundException(`Nómina con ID "${nominaId}" no encontrada.`);
     }
-    return this.novedadRepository.find({ where: { nominaId }, order: { empleadoId: 'ASC' } });
+    return this.novedadRepository.find({
+      where: { nominaId },
+      order: { empleadoId: 'ASC' },
+    });
   }
 
-  async update(id: number, updateNovedadDto: UpdateNovedadDto): Promise<Novedad> {
+  async update(
+    id: number,
+    updateNovedadDto: UpdateNovedadDto,
+  ): Promise<Novedad> {
     const novedad = await this.findOne(id);
 
     // Revalida el estado de la nómina en el momento de la edición
-    await this.validarEmpleadoYNominaAbierta(novedad.empleadoId, novedad.nominaId);
+    await this.validarEmpleadoYNominaAbierta(
+      novedad.empleadoId,
+      novedad.nominaId,
+    );
 
     const tipo = updateNovedadDto.tipo ?? novedad.tipo;
     const afectaBasePrestaciones =
       tipo === TipoNovedad.LICENCIA_MATERNIDAD
         ? false
-        : (updateNovedadDto.afectaBasePrestaciones ?? novedad.afectaBasePrestaciones);
+        : (updateNovedadDto.afectaBasePrestaciones ??
+          novedad.afectaBasePrestaciones);
 
     const { fecha, ...resto } = updateNovedadDto;
 
@@ -115,7 +137,10 @@ export class NovedadesService {
 
   async remove(id: number): Promise<void> {
     const novedad = await this.findOne(id);
-    await this.validarEmpleadoYNominaAbierta(novedad.empleadoId, novedad.nominaId);
+    await this.validarEmpleadoYNominaAbierta(
+      novedad.empleadoId,
+      novedad.nominaId,
+    );
     await this.novedadRepository.delete(id);
   }
 }

@@ -6,7 +6,7 @@ export enum SectorEconomico {
 }
 
 export const SALARIO_MINIMO_SECTOR = {
-  [SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA]: 408.80,
+  [SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA]: 408.8,
   [SectorEconomico.MAQUILA_TEXTIL]: 402.32,
   [SectorEconomico.BENEFICIOS_CAFE_AZUCAR]: 305.23,
   [SectorEconomico.AGROPECUARIO]: 272.53,

@@ -14,7 +14,10 @@ export interface ClasificacionBaseDeduccion {
 @Injectable()
 export class ClasificacionDeduccionesService {
   // afectaBasePrestaciones solo aplica a BONIFICACION (habitual vs. ocasional)
-  clasificar(tipo: TipoNovedad, afectaBasePrestaciones: boolean | null): ClasificacionBaseDeduccion {
+  clasificar(
+    tipo: TipoNovedad,
+    afectaBasePrestaciones: boolean | null,
+  ): ClasificacionBaseDeduccion {
     switch (tipo) {
       case TipoNovedad.HORAS_EXTRA:
         return { cuentaISSS: false, cuentaAFP: true, cuentaISR: true };
@@ -25,7 +28,12 @@ export class ClasificacionDeduccionesService {
           : { cuentaISSS: false, cuentaAFP: false, cuentaISR: true };
 
       case TipoNovedad.LICENCIA_MATERNIDAD:
-        return { cuentaISSS: true, cuentaAFP: true, cuentaISR: true, topeIndividualAFP: 1000 };
+        return {
+          cuentaISSS: true,
+          cuentaAFP: true,
+          cuentaISR: true,
+          topeIndividualAFP: 1000,
+        };
 
       default:
         throw new Error(

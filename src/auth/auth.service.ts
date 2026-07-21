@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { EmpleadosService } from '../empleados/empleados.service';
 import { LoginDto } from './dto/login.dto';
@@ -22,7 +26,9 @@ export class AuthService {
     }
 
     if (!createEmpleadoDto.password) {
-      throw new ConflictException('Se requiere una contraseña para el registro de usuario.');
+      throw new ConflictException(
+        'Se requiere una contraseña para el registro de usuario.',
+      );
     }
 
     return this.empleadosService.create(createEmpleadoDto);
@@ -30,9 +36,12 @@ export class AuthService {
 
   async login(loginDto: LoginDto) {
     const { documentoIdentidad, password } = loginDto;
-    
+
     // Buscar empleado por Documento de Identidad incluyendo la contraseña en la consulta
-    const empleado = await this.empleadosService.findByDocumentoIdentidadWithPassword(documentoIdentidad);
+    const empleado =
+      await this.empleadosService.findByDocumentoIdentidadWithPassword(
+        documentoIdentidad,
+      );
     if (!empleado || !empleado.password) {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
@@ -42,12 +51,12 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
-    const payload = { 
-      sub: empleado.id, 
+    const payload = {
+      sub: empleado.id,
       tipoDocumento: empleado.tipoDocumento,
       documentoIdentidad: empleado.documentoIdentidad,
-      email: empleado.email, 
-      rol: empleado.rol 
+      email: empleado.email,
+      rol: empleado.rol,
     };
 
     return {

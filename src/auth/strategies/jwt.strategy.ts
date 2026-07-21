@@ -13,7 +13,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET', 'super_secreto_para_jwt_equipo_nomina'),
+      secretOrKey: configService.get<string>(
+        'JWT_SECRET',
+        'super_secreto_para_jwt_equipo_nomina',
+      ),
     });
   }
 
@@ -21,7 +24,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const { sub: id } = payload;
     const empleado = await this.empleadosService.findOne(+id);
     if (!empleado) {
-      throw new UnauthorizedException('Token inválido o el usuario ya no existe.');
+      throw new UnauthorizedException(
+        'Token inválido o el usuario ya no existe.',
+      );
     }
     return empleado; // Se inyecta en req.user
   }

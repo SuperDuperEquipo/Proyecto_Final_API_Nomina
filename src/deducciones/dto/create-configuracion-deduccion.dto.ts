@@ -1,8 +1,18 @@
-import { IsNotEmpty, IsDateString, IsNumber, Min, Max, IsOptional } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsDateString,
+  IsNumber,
+  Min,
+  Max,
+  IsOptional,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateConfiguracionDeduccionDto {
-  @ApiProperty({ example: '2025-05-08', description: 'Fecha desde la que aplica esta configuración.' })
+  @ApiProperty({
+    example: '2025-05-08',
+    description: 'Fecha desde la que aplica esta configuración.',
+  })
   @IsNotEmpty()
   @IsDateString()
   vigenteDesde: string;
@@ -39,7 +49,8 @@ export class CreateConfiguracionDeduccionDto {
   @ApiProperty({
     example: null,
     required: false,
-    description: 'Tope de cotización de AFP. null = sin tope (caso vigente hoy).',
+    description:
+      'Tope de cotización de AFP. null = sin tope (caso vigente hoy).',
   })
   @IsOptional()
   @IsNumber()

@@ -33,7 +33,8 @@ export class IsrCalculoService {
     // limiteInferior (por ejemplo: tramo II, "exceso de $550" y no $550.01).
     const referenciaExcedente = tramoAplicable.limiteInferior - 0.01;
     const excedente = baseGravable - referenciaExcedente;
-    const isr = tramoAplicable.cuotaFija + excedente * (tramoAplicable.porcentaje / 100);
+    const isr =
+      tramoAplicable.cuotaFija + excedente * (tramoAplicable.porcentaje / 100);
 
     return redondearComercial(isr);
   }

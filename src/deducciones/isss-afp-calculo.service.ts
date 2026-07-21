@@ -12,15 +12,30 @@ export interface ResultadoIsssAfp {
 // Recibe dos bases ya armadas, porque ISSS y AFP no siempre se calculan sobre el mismo monto
 @Injectable()
 export class IsssAfpCalculoService {
-  calcular(baseISSS: number, baseAFP: number, config: ConfiguracionDeduccion): ResultadoIsssAfp {
+  calcular(
+    baseISSS: number,
+    baseAFP: number,
+    config: ConfiguracionDeduccion,
+  ): ResultadoIsssAfp {
     const baseISSSTopada = Math.min(baseISSS, config.issssTopeBase);
-    const baseAFPTopada = config.afpTopeBase !== null ? Math.min(baseAFP, config.afpTopeBase) : baseAFP;
+    const baseAFPTopada =
+      config.afpTopeBase !== null
+        ? Math.min(baseAFP, config.afpTopeBase)
+        : baseAFP;
 
     return {
-      issssTrabajador: redondearComercial(baseISSSTopada * (config.issssPctTrabajador / 100)),
-      issssPatronal: redondearComercial(baseISSSTopada * (config.issssPctPatronal / 100)),
-      afpTrabajador: redondearComercial(baseAFPTopada * (config.afpPctTrabajador / 100)),
-      afpPatronal: redondearComercial(baseAFPTopada * (config.afpPctPatronal / 100)),
+      issssTrabajador: redondearComercial(
+        baseISSSTopada * (config.issssPctTrabajador / 100),
+      ),
+      issssPatronal: redondearComercial(
+        baseISSSTopada * (config.issssPctPatronal / 100),
+      ),
+      afpTrabajador: redondearComercial(
+        baseAFPTopada * (config.afpPctTrabajador / 100),
+      ),
+      afpPatronal: redondearComercial(
+        baseAFPTopada * (config.afpPctPatronal / 100),
+      ),
     };
   }
 }

@@ -70,7 +70,9 @@ describe('AuthService', () => {
       };
 
       empleadosService.findAll.mockResolvedValue([]);
-      empleadosService.create.mockImplementation((data) => Promise.resolve({ id: 1, ...data }));
+      empleadosService.create.mockImplementation((data) =>
+        Promise.resolve({ id: 1, ...data }),
+      );
 
       const result = await service.register(dto);
 
@@ -96,7 +98,9 @@ describe('AuthService', () => {
       };
 
       empleadosService.findAll.mockResolvedValue([{ id: 1, nombre: 'Admin' }]);
-      empleadosService.create.mockImplementation((data) => Promise.resolve({ id: 2, ...data }));
+      empleadosService.create.mockImplementation((data) =>
+        Promise.resolve({ id: 2, ...data }),
+      );
 
       const result = await service.register(dto);
 
@@ -132,9 +136,13 @@ describe('AuthService', () => {
     };
 
     it('should throw UnauthorizedException if employee is not found', async () => {
-      empleadosService.findByDocumentoIdentidadWithPassword.mockResolvedValue(null);
+      empleadosService.findByDocumentoIdentidadWithPassword.mockResolvedValue(
+        null,
+      );
 
-      await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
+      await expect(service.login(loginDto)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('should throw UnauthorizedException if employee has no password set', async () => {
@@ -146,7 +154,9 @@ describe('AuthService', () => {
         password: null,
       });
 
-      await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
+      await expect(service.login(loginDto)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('should throw UnauthorizedException if password comparison fails', async () => {
@@ -159,7 +169,9 @@ describe('AuthService', () => {
       });
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-      await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException);
+      await expect(service.login(loginDto)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('should return access token and user info if password is valid', async () => {
@@ -173,7 +185,9 @@ describe('AuthService', () => {
         rol: EmpleadoRole.ADMIN,
       };
 
-      empleadosService.findByDocumentoIdentidadWithPassword.mockResolvedValue(user);
+      empleadosService.findByDocumentoIdentidadWithPassword.mockResolvedValue(
+        user,
+      );
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       jwtService.sign.mockReturnValue('jwt-token-xyz');
 

@@ -1,4 +1,10 @@
-import { Injectable, ConflictException, NotFoundException, OnApplicationBootstrap, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  OnApplicationBootstrap,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateEmpleadoDto } from './dto/create-empleado.dto';
@@ -6,7 +12,10 @@ import { UpdateEmpleadoDto } from './dto/update-empleado.dto';
 import { Empleado, EmpleadoRole } from './entities/empleado.entity';
 import { HistorialSalario } from './entities/historial-salario.entity';
 import { TipoDocumento } from './entities/tipo-documento.enum';
-import { SectorEconomico, SALARIO_MINIMO_SECTOR } from './entities/sector-economico.enum';
+import {
+  SectorEconomico,
+  SALARIO_MINIMO_SECTOR,
+} from './entities/sector-economico.enum';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -16,7 +25,7 @@ export class EmpleadosService implements OnApplicationBootstrap {
     private readonly empleadoRepository: Repository<Empleado>,
     @InjectRepository(HistorialSalario)
     private readonly historialSalarioRepository: Repository<HistorialSalario>,
-  ) { }
+  ) {}
 
   async onApplicationBootstrap() {
     await this.seedAdmin();
@@ -41,10 +50,16 @@ export class EmpleadosService implements OnApplicationBootstrap {
         rol: EmpleadoRole.ADMIN,
       };
       await this.create(adminDto);
-      console.log('\x1b[32m%s\x1b[0m', '--- BASE DE DATOS VACÍA: Se ha sembrado el usuario administrador inicial ---');
+      console.log(
+        '\x1b[32m%s\x1b[0m',
+        '--- BASE DE DATOS VACÍA: Se ha sembrado el usuario administrador inicial ---',
+      );
       console.log('\x1b[32m%s\x1b[0m', 'Documento Identidad: 00000000-0');
       console.log('\x1b[32m%s\x1b[0m', 'Password: adminPassword123');
-      console.log('\x1b[32m%s\x1b[0m', '----------------------------------------------------------------------------');
+      console.log(
+        '\x1b[32m%s\x1b[0m',
+        '----------------------------------------------------------------------------',
+      );
     }
   }
 
@@ -52,16 +67,22 @@ export class EmpleadosService implements OnApplicationBootstrap {
     if (tipo === TipoDocumento.DUI) {
       const duiRegex = /^\d{8}-\d$/;
       if (!duiRegex.test(numero)) {
-        throw new BadRequestException('El DUI debe tener el formato de 8 dígitos, un guion y un dígito verificador (ej. 00000000-0).');
+        throw new BadRequestException(
+          'El DUI debe tener el formato de 8 dígitos, un guion y un dígito verificador (ej. 00000000-0).',
+        );
       }
     } else if (tipo === TipoDocumento.PASAPORTE) {
       const passportRegex = /^[A-Z0-9]{6,15}$/i;
       if (!passportRegex.test(numero)) {
-        throw new BadRequestException('El pasaporte debe ser alfanumérico y tener entre 6 y 15 caracteres.');
+        throw new BadRequestException(
+          'El pasaporte debe ser alfanumérico y tener entre 6 y 15 caracteres.',
+        );
       }
     } else if (tipo === TipoDocumento.CARNET_RESIDENCIA) {
       if (numero.length < 5 || numero.length > 25) {
-        throw new BadRequestException('El carnet de residencia debe tener entre 5 y 25 caracteres.');
+        throw new BadRequestException(
+          'El carnet de residencia debe tener entre 5 y 25 caracteres.',
+        );
       }
     }
   }
@@ -70,7 +91,7 @@ export class EmpleadosService implements OnApplicationBootstrap {
     const minimo = SALARIO_MINIMO_SECTOR[sector];
     if (salario < minimo) {
       throw new BadRequestException(
-        `El salario base ($${salario}) está por debajo del salario mínimo de $${minimo} fijado por ley para el sector económico ${sector} (Decreto Ejecutivo N.º 11, MTPS).`
+        `El salario base ($${salario}) está por debajo del salario mínimo de $${minimo} fijado por ley para el sector económico ${sector} (Decreto Ejecutivo N.º 11, MTPS).`,
       );
     }
   }
@@ -79,10 +100,15 @@ export class EmpleadosService implements OnApplicationBootstrap {
     const { password, fechaIngreso, ...empleadoData } = createEmpleadoDto;
 
     // Validar formato de documento de identidad
-    this.validateDocumentoIdentidad(createEmpleadoDto.tipoDocumento, createEmpleadoDto.documentoIdentidad);
+    this.validateDocumentoIdentidad(
+      createEmpleadoDto.tipoDocumento,
+      createEmpleadoDto.documentoIdentidad,
+    );
 
     // Asignar sector económico por defecto si no viene especificado
-    const sector = createEmpleadoDto.sectorEconomico || SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA;
+    const sector =
+      createEmpleadoDto.sectorEconomico ||
+      SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA;
 
     // Validar salario mínimo
     this.validateSalarioMinimo(sector, createEmpleadoDto.salarioBase);
@@ -102,11 +128,14 @@ export class EmpleadosService implements OnApplicationBootstrap {
     try {
       const savedEmpleado = await this.empleadoRepository.save(empleado);
       delete savedEmpleado.password;
-      savedEmpleado.alertaDocumentacionVencida = this.checkDocumentacionAlerta(savedEmpleado);
+      savedEmpleado.alertaDocumentacionVencida =
+        this.checkDocumentacionAlerta(savedEmpleado);
       return savedEmpleado;
     } catch (error) {
       if (error.code === '23505') {
-        throw new ConflictException('El Documento de Identidad o Correo ingresado ya existe en la base de datos.');
+        throw new ConflictException(
+          'El Documento de Identidad o Correo ingresado ya existe en la base de datos.',
+        );
       }
       throw error;
     }
@@ -114,7 +143,7 @@ export class EmpleadosService implements OnApplicationBootstrap {
 
   async findAll(): Promise<Empleado[]> {
     const empleados = await this.empleadoRepository.find();
-    return empleados.map(emp => {
+    return empleados.map((emp) => {
       delete emp.password;
       emp.alertaDocumentacionVencida = this.checkDocumentacionAlerta(emp);
       return emp;
@@ -127,7 +156,8 @@ export class EmpleadosService implements OnApplicationBootstrap {
       throw new NotFoundException(`Empleado con ID "${id}" no encontrado.`);
     }
     delete empleado.password;
-    empleado.alertaDocumentacionVencida = this.checkDocumentacionAlerta(empleado);
+    empleado.alertaDocumentacionVencida =
+      this.checkDocumentacionAlerta(empleado);
     return empleado;
   }
 
@@ -153,7 +183,9 @@ export class EmpleadosService implements OnApplicationBootstrap {
     });
   }
 
-  async findByDocumentoIdentidadWithPassword(documentoIdentidad: string): Promise<Empleado | null> {
+  async findByDocumentoIdentidadWithPassword(
+    documentoIdentidad: string,
+  ): Promise<Empleado | null> {
     return this.empleadoRepository.findOne({
       where: { documentoIdentidad },
       select: {
@@ -197,25 +229,42 @@ export class EmpleadosService implements OnApplicationBootstrap {
     });
   }
 
-  async update(id: number, updateEmpleadoDto: UpdateEmpleadoDto): Promise<Empleado> {
+  async update(
+    id: number,
+    updateEmpleadoDto: UpdateEmpleadoDto,
+  ): Promise<Empleado> {
     const existingEmpleado = await this.empleadoRepository.findOneBy({ id });
     if (!existingEmpleado) {
       throw new NotFoundException(`Empleado con ID "${id}" no encontrado.`);
     }
 
-    const { password, fechaIngreso, motivoCambioSalario, ...updateData } = updateEmpleadoDto;
+    const { password, fechaIngreso, motivoCambioSalario, ...updateData } =
+      updateEmpleadoDto;
 
     // Validar tipo y número de documento si alguno cambia
-    if (updateEmpleadoDto.tipoDocumento || updateEmpleadoDto.documentoIdentidad) {
-      const docTipo = updateEmpleadoDto.tipoDocumento || existingEmpleado.tipoDocumento;
-      const docNum = updateEmpleadoDto.documentoIdentidad || existingEmpleado.documentoIdentidad;
+    if (
+      updateEmpleadoDto.tipoDocumento ||
+      updateEmpleadoDto.documentoIdentidad
+    ) {
+      const docTipo =
+        updateEmpleadoDto.tipoDocumento || existingEmpleado.tipoDocumento;
+      const docNum =
+        updateEmpleadoDto.documentoIdentidad ||
+        existingEmpleado.documentoIdentidad;
       this.validateDocumentoIdentidad(docTipo, docNum);
     }
 
     // Validar salario mínimo si sector o salario cambian
-    if (updateEmpleadoDto.sectorEconomico || updateEmpleadoDto.salarioBase !== undefined) {
-      const sector = updateEmpleadoDto.sectorEconomico || existingEmpleado.sectorEconomico;
-      const salario = updateEmpleadoDto.salarioBase !== undefined ? updateEmpleadoDto.salarioBase : existingEmpleado.salarioBase;
+    if (
+      updateEmpleadoDto.sectorEconomico ||
+      updateEmpleadoDto.salarioBase !== undefined
+    ) {
+      const sector =
+        updateEmpleadoDto.sectorEconomico || existingEmpleado.sectorEconomico;
+      const salario =
+        updateEmpleadoDto.salarioBase !== undefined
+          ? updateEmpleadoDto.salarioBase
+          : existingEmpleado.salarioBase;
       this.validateSalarioMinimo(sector, salario);
     }
 
@@ -230,7 +279,11 @@ export class EmpleadosService implements OnApplicationBootstrap {
     }
 
     // Registrar en el historial si el salario cambia
-    if (updateEmpleadoDto.salarioBase !== undefined && Number(updateEmpleadoDto.salarioBase) !== Number(existingEmpleado.salarioBase)) {
+    if (
+      updateEmpleadoDto.salarioBase !== undefined &&
+      Number(updateEmpleadoDto.salarioBase) !==
+        Number(existingEmpleado.salarioBase)
+    ) {
       await this.historialSalarioRepository.save({
         empleadoId: id,
         salarioAnterior: existingEmpleado.salarioBase,
@@ -243,14 +296,19 @@ export class EmpleadosService implements OnApplicationBootstrap {
       await this.empleadoRepository.update(id, dataToUpdate);
       const updatedEmpleado = await this.empleadoRepository.findOneBy({ id });
       if (!updatedEmpleado) {
-        throw new NotFoundException(`Empleado con ID "${id}" no encontrado después de actualizar.`);
+        throw new NotFoundException(
+          `Empleado con ID "${id}" no encontrado después de actualizar.`,
+        );
       }
       delete updatedEmpleado.password;
-      updatedEmpleado.alertaDocumentacionVencida = this.checkDocumentacionAlerta(updatedEmpleado);
+      updatedEmpleado.alertaDocumentacionVencida =
+        this.checkDocumentacionAlerta(updatedEmpleado);
       return updatedEmpleado;
     } catch (error) {
       if (error.code === '23505') {
-        throw new ConflictException('El Documento de Identidad o Correo ingresado ya existe en la base de datos.');
+        throw new ConflictException(
+          'El Documento de Identidad o Correo ingresado ya existe en la base de datos.',
+        );
       }
       throw error;
     }
@@ -274,11 +332,19 @@ export class EmpleadosService implements OnApplicationBootstrap {
   async getNationalityStatistics() {
     const total = await this.empleadoRepository.count();
     if (total === 0) {
-      return { total: 0, salvadorenos: 0, extranjeros: 0, porcentajeSalvadorenos: 100, cumpleLey: true };
+      return {
+        total: 0,
+        salvadorenos: 0,
+        extranjeros: 0,
+        porcentajeSalvadorenos: 100,
+        cumpleLey: true,
+      };
     }
 
     // Contar cuántos son DUI (salvadoreños)
-    const salvadorenos = await this.empleadoRepository.countBy({ tipoDocumento: TipoDocumento.DUI });
+    const salvadorenos = await this.empleadoRepository.countBy({
+      tipoDocumento: TipoDocumento.DUI,
+    });
     const extranjeros = total - salvadorenos;
     const porcentajeSalvadorenos = (salvadorenos / total) * 100;
     const cumpleLey = porcentajeSalvadorenos >= 90;
@@ -289,7 +355,9 @@ export class EmpleadosService implements OnApplicationBootstrap {
       extranjeros,
       porcentajeSalvadorenos: parseFloat(porcentajeSalvadorenos.toFixed(2)),
       cumpleLey,
-      advertencia: cumpleLey ? null : 'Alerta: El porcentaje de empleados salvadoreños es inferior al 90% requerido por el Art. 11 del Código de Trabajo.'
+      advertencia: cumpleLey
+        ? null
+        : 'Alerta: El porcentaje de empleados salvadoreños es inferior al 90% requerido por el Art. 11 del Código de Trabajo.',
     };
   }
 

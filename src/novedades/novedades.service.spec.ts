@@ -52,8 +52,14 @@ describe('NovedadesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NovedadesService,
-        { provide: getRepositoryToken(Novedad), useValue: mockNovedadRepository },
-        { provide: getRepositoryToken(Empleado), useValue: mockEmpleadoRepository },
+        {
+          provide: getRepositoryToken(Novedad),
+          useValue: mockNovedadRepository,
+        },
+        {
+          provide: getRepositoryToken(Empleado),
+          useValue: mockEmpleadoRepository,
+        },
         { provide: getRepositoryToken(Nomina), useValue: mockNominaRepository },
       ],
     }).compile();
@@ -83,7 +89,12 @@ describe('NovedadesService', () => {
     it('should create a novedad when empleado exists and nomina is ABIERTA', async () => {
       empleadoRepository.findOneBy.mockResolvedValue(empleado);
       nominaRepository.findOneBy.mockResolvedValue(nominaAbierta);
-      const created = { ...dto, id: 1, fecha: new Date(dto.fecha), afectaBasePrestaciones: false };
+      const created = {
+        ...dto,
+        id: 1,
+        fecha: new Date(dto.fecha),
+        afectaBasePrestaciones: false,
+      };
       novedadRepository.create.mockReturnValue(created);
       novedadRepository.save.mockResolvedValue(created);
 
@@ -114,7 +125,9 @@ describe('NovedadesService', () => {
       empleadoRepository.findOneBy.mockResolvedValue(empleado);
       nominaRepository.findOneBy.mockResolvedValue(nominaCerrada);
 
-      await expect(service.create({ ...dto, nominaId: 2 })).rejects.toThrow(ConflictException);
+      await expect(service.create({ ...dto, nominaId: 2 })).rejects.toThrow(
+        ConflictException,
+      );
       expect(novedadRepository.save).not.toHaveBeenCalled();
     });
 
@@ -126,12 +139,14 @@ describe('NovedadesService', () => {
         nominaId: 1,
         tipo: TipoNovedad.LICENCIA_MATERNIDAD,
         fecha: '2026-07-15',
-        afectaBasePrestaciones: true, 
+        afectaBasePrestaciones: true,
       };
       novedadRepository.create.mockImplementation((data: any) => data);
-      novedadRepository.save.mockImplementation((data: any) => Promise.resolve({ ...data, id: 9 }));
+      novedadRepository.save.mockImplementation((data: any) =>
+        Promise.resolve({ ...data, id: 9 }),
+      );
 
-      const result = await service.create(licenciaDto as any);
+      const result = await service.create(licenciaDto);
 
       expect(result.afectaBasePrestaciones).toBe(false);
     });
@@ -140,7 +155,9 @@ describe('NovedadesService', () => {
       empleadoRepository.findOneBy.mockResolvedValue(empleado);
       nominaRepository.findOneBy.mockResolvedValue(nominaAbierta);
       novedadRepository.create.mockImplementation((data: any) => data);
-      novedadRepository.save.mockImplementation((data: any) => Promise.resolve({ ...data, id: 11 }));
+      novedadRepository.save.mockImplementation((data: any) =>
+        Promise.resolve({ ...data, id: 11 }),
+      );
 
       const result = await service.create(dto);
 
@@ -159,9 +176,11 @@ describe('NovedadesService', () => {
         afectaBasePrestaciones: true,
       };
       novedadRepository.create.mockImplementation((data: any) => data);
-      novedadRepository.save.mockImplementation((data: any) => Promise.resolve({ ...data, id: 10 }));
+      novedadRepository.save.mockImplementation((data: any) =>
+        Promise.resolve({ ...data, id: 10 }),
+      );
 
-      const result = await service.create(bonoDto as any);
+      const result = await service.create(bonoDto);
 
       expect(result.afectaBasePrestaciones).toBe(true);
     });
@@ -172,7 +191,11 @@ describe('NovedadesService', () => {
       const lista = [{ id: 1 }, { id: 2 }];
       novedadRepository.find.mockResolvedValue(lista);
 
-      const result = await service.findAll({ empleadoId: 1, nominaId: 1, tipo: TipoNovedad.DESCUENTO });
+      const result = await service.findAll({
+        empleadoId: 1,
+        nominaId: 1,
+        tipo: TipoNovedad.DESCUENTO,
+      });
 
       expect(novedadRepository.find).toHaveBeenCalledWith({
         where: { empleadoId: 1, nominaId: 1, tipo: TipoNovedad.DESCUENTO },
@@ -186,7 +209,10 @@ describe('NovedadesService', () => {
 
       await service.findAll();
 
-      expect(novedadRepository.find).toHaveBeenCalledWith({ where: {}, order: { fecha: 'DESC' } });
+      expect(novedadRepository.find).toHaveBeenCalledWith({
+        where: {},
+        order: { fecha: 'DESC' },
+      });
     });
   });
 
@@ -226,7 +252,9 @@ describe('NovedadesService', () => {
     it('should throw NotFoundException if nomina does not exist', async () => {
       nominaRepository.findOneBy.mockResolvedValue(null);
 
-      await expect(service.findByNomina(999)).rejects.toThrow(NotFoundException);
+      await expect(service.findByNomina(999)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -245,7 +273,9 @@ describe('NovedadesService', () => {
       novedadRepository.findOneBy.mockResolvedValue(existente);
       empleadoRepository.findOneBy.mockResolvedValue(empleado);
       nominaRepository.findOneBy.mockResolvedValue(nominaAbierta);
-      novedadRepository.save.mockImplementation((data: any) => Promise.resolve(data));
+      novedadRepository.save.mockImplementation((data: any) =>
+        Promise.resolve(data),
+      );
 
       const result = await service.update(1, { monto: 75 });
 
@@ -258,21 +288,30 @@ describe('NovedadesService', () => {
       empleadoRepository.findOneBy.mockResolvedValue(empleado);
       nominaRepository.findOneBy.mockResolvedValue(nominaCerrada);
 
-      await expect(service.update(1, { monto: 75 })).rejects.toThrow(ConflictException);
+      await expect(service.update(1, { monto: 75 })).rejects.toThrow(
+        ConflictException,
+      );
       expect(novedadRepository.save).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if novedad does not exist', async () => {
       novedadRepository.findOneBy.mockResolvedValue(null);
 
-      await expect(service.update(999, { monto: 75 })).rejects.toThrow(NotFoundException);
+      await expect(service.update(999, { monto: 75 })).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should force afectaBasePrestaciones = false when tipo is updated to LICENCIA_MATERNIDAD', async () => {
-      novedadRepository.findOneBy.mockResolvedValue({ ...existente, afectaBasePrestaciones: true });
+      novedadRepository.findOneBy.mockResolvedValue({
+        ...existente,
+        afectaBasePrestaciones: true,
+      });
       empleadoRepository.findOneBy.mockResolvedValue(empleado);
       nominaRepository.findOneBy.mockResolvedValue(nominaAbierta);
-      novedadRepository.save.mockImplementation((data: any) => Promise.resolve(data));
+      novedadRepository.save.mockImplementation((data: any) =>
+        Promise.resolve(data),
+      );
 
       const result = await service.update(1, {
         tipo: TipoNovedad.LICENCIA_MATERNIDAD,
@@ -286,7 +325,9 @@ describe('NovedadesService', () => {
       novedadRepository.findOneBy.mockResolvedValue(existente);
       empleadoRepository.findOneBy.mockResolvedValue(empleado);
       nominaRepository.findOneBy.mockResolvedValue(nominaAbierta);
-      novedadRepository.save.mockImplementation((data: any) => Promise.resolve(data));
+      novedadRepository.save.mockImplementation((data: any) =>
+        Promise.resolve(data),
+      );
 
       const result = await service.update(1, { fecha: '2026-08-01' });
 

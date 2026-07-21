@@ -1,4 +1,13 @@
-import { IsNotEmpty, IsString, IsNumber, IsPositive, IsDateString, IsEmail, IsEnum, IsOptional } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsPositive,
+  IsDateString,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+} from 'class-validator';
 import { EmpleadoRole } from '../entities/empleado.entity';
 import { TipoDocumento } from '../entities/tipo-documento.enum';
 import { SectorEconomico } from '../entities/sector-economico.enum';
@@ -10,7 +19,11 @@ export class CreateEmpleadoDto {
   @IsString()
   nombre: string;
 
-  @ApiProperty({ enum: TipoDocumento, example: TipoDocumento.DUI, default: TipoDocumento.DUI })
+  @ApiProperty({
+    enum: TipoDocumento,
+    example: TipoDocumento.DUI,
+    default: TipoDocumento.DUI,
+  })
   @IsNotEmpty()
   @IsEnum(TipoDocumento)
   tipoDocumento: TipoDocumento;
@@ -30,12 +43,17 @@ export class CreateEmpleadoDto {
   @IsString()
   password?: string;
 
-  @ApiProperty({ enum: SectorEconomico, example: SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA, required: false, default: SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA })
+  @ApiProperty({
+    enum: SectorEconomico,
+    example: SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA,
+    required: false,
+    default: SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA,
+  })
   @IsOptional()
   @IsEnum(SectorEconomico)
   sectorEconomico?: SectorEconomico;
 
-  @ApiProperty({ example: 1200.00 })
+  @ApiProperty({ example: 1200.0 })
   @IsNotEmpty()
   @IsNumber()
   @IsPositive()
@@ -66,7 +84,11 @@ export class CreateEmpleadoDto {
   @IsString()
   isss?: string;
 
-  @ApiProperty({ enum: EmpleadoRole, example: EmpleadoRole.EMPLEADO, required: false })
+  @ApiProperty({
+    enum: EmpleadoRole,
+    example: EmpleadoRole.EMPLEADO,
+    required: false,
+  })
   @IsOptional()
   @IsEnum(EmpleadoRole)
   rol?: EmpleadoRole;

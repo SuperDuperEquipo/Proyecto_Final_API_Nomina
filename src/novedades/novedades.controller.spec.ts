@@ -22,7 +22,9 @@ describe('NovedadesController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [NovedadesController],
-      providers: [{ provide: NovedadesService, useValue: mockNovedadesService }],
+      providers: [
+        { provide: NovedadesService, useValue: mockNovedadesService },
+      ],
     }).compile();
 
     controller = module.get<NovedadesController>(NovedadesController);
@@ -60,7 +62,11 @@ describe('NovedadesController', () => {
       const mockList = [{ id: 1 }, { id: 2 }];
       service.findAll.mockResolvedValue(mockList);
 
-      const result = await controller.findAll('1', '2', TipoNovedad.BONIFICACION);
+      const result = await controller.findAll(
+        '1',
+        '2',
+        TipoNovedad.BONIFICACION,
+      );
 
       expect(service.findAll).toHaveBeenCalledWith({
         empleadoId: 1,

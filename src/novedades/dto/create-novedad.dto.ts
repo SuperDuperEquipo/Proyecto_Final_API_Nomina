@@ -51,13 +51,20 @@ function RequeridoSoloParaTipos(
 }
 
 export class CreateNovedadDto {
-  @ApiProperty({ example: 1, description: 'ID del empleado al que aplica la novedad' })
+  @ApiProperty({
+    example: 1,
+    description: 'ID del empleado al que aplica la novedad',
+  })
   @IsNotEmpty()
   @IsInt()
   @IsPositive()
   empleadoId: number;
 
-  @ApiProperty({ example: 1, description: 'ID de la nómina en el período a la que se registra la novedad.' })
+  @ApiProperty({
+    example: 1,
+    description:
+      'ID de la nómina en el período a la que se registra la novedad.',
+  })
   @IsNotEmpty()
   @IsInt()
   @IsPositive()
@@ -71,7 +78,8 @@ export class CreateNovedadDto {
   @ApiProperty({
     example: 5,
     required: false,
-    description: 'Cantidad de horas. Obligatorio únicamente cuando tipo = HORAS_EXTRA; se rechaza si se envía para cualquier otro tipo.',
+    description:
+      'Cantidad de horas. Obligatorio únicamente cuando tipo = HORAS_EXTRA; se rechaza si se envía para cualquier otro tipo.',
   })
   @RequeridoSoloParaTipos(
     [TipoNovedad.HORAS_EXTRA],
@@ -83,18 +91,19 @@ export class CreateNovedadDto {
     enum: SubtipoHoraExtra,
     example: SubtipoHoraExtra.DIURNA,
     required: false,
-    description: 'Obligatorio únicamente cuando tipo = HORAS_EXTRA; se rechaza si se envía para cualquier otro tipo. El recargo legal difiere entre horas diurnas, nocturnas y las trabajadas en día de descanso/asueto.',
+    description:
+      'Obligatorio únicamente cuando tipo = HORAS_EXTRA; se rechaza si se envía para cualquier otro tipo. El recargo legal difiere entre horas diurnas, nocturnas y las trabajadas en día de descanso/asueto.',
   })
-  @RequeridoSoloParaTipos(
-    [TipoNovedad.HORAS_EXTRA],
-    (v) => Object.values(SubtipoHoraExtra).includes(v as SubtipoHoraExtra),
+  @RequeridoSoloParaTipos([TipoNovedad.HORAS_EXTRA], (v) =>
+    Object.values(SubtipoHoraExtra).includes(v as SubtipoHoraExtra),
   )
   subtipoHoraExtra?: SubtipoHoraExtra;
 
   @ApiProperty({
     example: 50,
     required: false,
-    description: 'Monto en dólares. Obligatorio únicamente cuando tipo = BONIFICACION o DESCUENTO; se rechaza si se envía para cualquier otro tipo.',
+    description:
+      'Monto en dólares. Obligatorio únicamente cuando tipo = BONIFICACION o DESCUENTO; se rechaza si se envía para cualquier otro tipo.',
   })
   @RequeridoSoloParaTipos(
     [TipoNovedad.BONIFICACION, TipoNovedad.DESCUENTO],
@@ -104,7 +113,8 @@ export class CreateNovedadDto {
 
   @ApiProperty({
     example: '2026-07-15',
-    description: 'Fecha de devengo de la novedad, no la fecha de registro. Para comisiones registradas como bonificación, debe ser la fecha en que el cliente pagó.',
+    description:
+      'Fecha de devengo de la novedad, no la fecha de registro. Para comisiones registradas como bonificación, debe ser la fecha en que el cliente pagó.',
   })
   @IsNotEmpty()
   @IsDateString()
@@ -121,7 +131,7 @@ export class CreateNovedadDto {
     required: false,
     default: false,
     description:
-      'Solo aplica a bonificación, true si es habitual o recurrente. False si es una liberalidad ocasional del patrono.'
+      'Solo aplica a bonificación, true si es habitual o recurrente. False si es una liberalidad ocasional del patrono.',
   })
   @IsOptional()
   @IsBoolean()

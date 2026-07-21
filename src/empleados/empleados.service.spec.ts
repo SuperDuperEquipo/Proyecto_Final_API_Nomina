@@ -5,7 +5,11 @@ import { Empleado, EmpleadoRole } from './entities/empleado.entity';
 import { HistorialSalario } from './entities/historial-salario.entity';
 import { TipoDocumento } from './entities/tipo-documento.enum';
 import { SectorEconomico } from './entities/sector-economico.enum';
-import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
 jest.mock('bcryptjs', () => ({
@@ -102,17 +106,27 @@ describe('EmpleadosService', () => {
 
     it('should throw BadRequestException if DUI format is invalid', async () => {
       const invalidDuiDto = { ...dto, documentoIdentidad: 'invalid-dui' };
-      await expect(service.create(invalidDuiDto)).rejects.toThrow(BadRequestException);
+      await expect(service.create(invalidDuiDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException if passport format is invalid', async () => {
-      const invalidPassportDto = { ...dto, tipoDocumento: TipoDocumento.PASAPORTE, documentoIdentidad: 'short' };
-      await expect(service.create(invalidPassportDto)).rejects.toThrow(BadRequestException);
+      const invalidPassportDto = {
+        ...dto,
+        tipoDocumento: TipoDocumento.PASAPORTE,
+        documentoIdentidad: 'short',
+      };
+      await expect(service.create(invalidPassportDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException if salary is below sector minimum wage', async () => {
       const lowSalaryDto = { ...dto, salarioBase: 100 }; // Minimum is 408.80
-      await expect(service.create(lowSalaryDto)).rejects.toThrow(BadRequestException);
+      await expect(service.create(lowSalaryDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw ConflictException if save fails with duplicate code 23505', async () => {
@@ -161,10 +175,15 @@ describe('EmpleadosService', () => {
 
   describe('findByDocumentoIdentidadWithPassword', () => {
     it('should return employee when found', async () => {
-      const employee = { id: 1, documentoIdentidad: '00000000-0', password: 'hash' };
+      const employee = {
+        id: 1,
+        documentoIdentidad: '00000000-0',
+        password: 'hash',
+      };
       repository.findOne.mockResolvedValue(employee);
 
-      const result = await service.findByDocumentoIdentidadWithPassword('00000000-0');
+      const result =
+        await service.findByDocumentoIdentidadWithPassword('00000000-0');
       expect(result).toBe(employee);
     });
   });
@@ -176,16 +195,21 @@ describe('EmpleadosService', () => {
     };
 
     it('should successfully update an employee and log salary change', async () => {
-      const existingEmployee = { 
-        id: 1, 
-        nombre: 'Emp 1', 
-        password: 'hash1', 
-        salarioBase: 1200, 
-        tipoDocumento: TipoDocumento.DUI, 
+      const existingEmployee = {
+        id: 1,
+        nombre: 'Emp 1',
+        password: 'hash1',
+        salarioBase: 1200,
+        tipoDocumento: TipoDocumento.DUI,
         documentoIdentidad: '01234567-8',
-        sectorEconomico: SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA
+        sectorEconomico: SectorEconomico.COMERCIO_SERVICIOS_INDUSTRIA,
       };
-      const updatedEmployee = { id: 1, nombre: 'Emp 1', salarioBase: 1300, password: 'hashed_password' };
+      const updatedEmployee = {
+        id: 1,
+        nombre: 'Emp 1',
+        salarioBase: 1300,
+        password: 'hashed_password',
+      };
 
       repository.findOneBy.mockResolvedValueOnce(existingEmployee); // Initial fetch in update
       repository.update.mockResolvedValue({ affected: 1 });

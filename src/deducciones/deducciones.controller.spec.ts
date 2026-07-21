@@ -16,7 +16,12 @@ describe('DeduccionesController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [DeduccionesController],
-      providers: [{ provide: ConfiguracionAdminService, useValue: mockConfiguracionAdminService }],
+      providers: [
+        {
+          provide: ConfiguracionAdminService,
+          useValue: mockConfiguracionAdminService,
+        },
+      ],
     }).compile();
 
     controller = module.get<DeduccionesController>(DeduccionesController);
@@ -39,7 +44,7 @@ describe('DeduccionesController', () => {
       afpPctPatronal: 8.75,
     };
 
-    controller.crearConfiguracion(dto as any);
+    controller.crearConfiguracion(dto);
 
     expect(service.crearConfiguracionDeduccion).toHaveBeenCalledWith(dto);
   });
@@ -53,7 +58,7 @@ describe('DeduccionesController', () => {
   it('crearTramosIsr invoca al servicio con el dto', () => {
     const dto = { vigenteDesde: '2025-05-08', tramos: [] };
 
-    controller.crearTramosIsr(dto as any);
+    controller.crearTramosIsr(dto);
 
     expect(service.crearTramosIsr).toHaveBeenCalledWith(dto);
   });

@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource, IsNull } from 'typeorm';
 import { ConfiguracionDeduccion } from './entities/configuracion-deduccion.entity';
@@ -18,11 +22,15 @@ export class ConfiguracionAdminService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async crearConfiguracionDeduccion(dto: CreateConfiguracionDeduccionDto): Promise<ConfiguracionDeduccion> {
+  async crearConfiguracionDeduccion(
+    dto: CreateConfiguracionDeduccionDto,
+  ): Promise<ConfiguracionDeduccion> {
     const nuevaVigenteDesde = new Date(dto.vigenteDesde);
 
     return this.dataSource.transaction(async (manager) => {
-      const actual = await manager.findOne(ConfiguracionDeduccion, { where: { vigenteHasta: IsNull() } });
+      const actual = await manager.findOne(ConfiguracionDeduccion, {
+        where: { vigenteHasta: IsNull() },
+      });
 
       if (actual && nuevaVigenteDesde <= actual.vigenteDesde) {
         throw new ConflictException({
@@ -57,7 +65,9 @@ export class ConfiguracionAdminService {
     const nuevaVigenteDesde = new Date(dto.vigenteDesde);
 
     return this.dataSource.transaction(async (manager) => {
-      const actuales = await manager.find(TramoISR, { where: { vigenteHasta: IsNull() } });
+      const actuales = await manager.find(TramoISR, {
+        where: { vigenteHasta: IsNull() },
+      });
 
       if (actuales.length && nuevaVigenteDesde <= actuales[0].vigenteDesde) {
         throw new ConflictException({
@@ -87,18 +97,26 @@ export class ConfiguracionAdminService {
   }
 
   async listarTramosIsr(): Promise<TramoISR[]> {
-    return this.tramoRepo.find({ order: { vigenteDesde: 'DESC', numeroTramo: 'ASC' } });
+    return this.tramoRepo.find({
+      order: { vigenteDesde: 'DESC', numeroTramo: 'ASC' },
+    });
   }
 
   // Valida que los 4 tramos estén completos, numerados 1-4 sin repetir
   private validarTramosContiguos(dto: CreateTramosIsrVigenciaDto) {
-    const ordenados = [...dto.tramos].sort((a, b) => a.numeroTramo - b.numeroTramo);
+    const ordenados = [...dto.tramos].sort(
+      (a, b) => a.numeroTramo - b.numeroTramo,
+    );
     const numeros = ordenados.map((t) => t.numeroTramo);
 
-    if (new Set(numeros).size !== 4 || JSON.stringify(numeros) !== JSON.stringify([1, 2, 3, 4])) {
+    if (
+      new Set(numeros).size !== 4 ||
+      JSON.stringify(numeros) !== JSON.stringify([1, 2, 3, 4])
+    ) {
       throw new BadRequestException({
         statusCode: 400,
-        message: 'Los 4 tramos deben estar numerados 1, 2, 3 y 4, cada uno una sola vez.',
+        message:
+          'Los 4 tramos deben estar numerados 1, 2, 3 y 4, cada uno una sola vez.',
         error: 'TRAMOS_ISR_INVALIDOS',
       });
     }
@@ -106,14 +124,21 @@ export class ConfiguracionAdminService {
     ordenados.forEach((tramo, i) => {
       const esUltimo = i === ordenados.length - 1;
 
-      if (esUltimo && tramo.limiteSuperior !== null && tramo.limiteSuperior !== undefined) {
+      if (
+        esUltimo &&
+        tramo.limiteSuperior !== null &&
+        tramo.limiteSuperior !== undefined
+      ) {
         throw new BadRequestException({
           statusCode: 400,
           message: 'El tramo 4 (el más alto) no debe tener limiteSuperior.',
           error: 'TRAMOS_ISR_INVALIDOS',
         });
       }
-      if (!esUltimo && (tramo.limiteSuperior === null || tramo.limiteSuperior === undefined)) {
+      if (
+        !esUltimo &&
+        (tramo.limiteSuperior === null || tramo.limiteSuperior === undefined)
+      ) {
         throw new BadRequestException({
           statusCode: 400,
           message: `El tramo ${tramo.numeroTramo} debe tener limiteSuperior (solo el tramo 4 no lleva).`,

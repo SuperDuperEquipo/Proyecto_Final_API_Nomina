@@ -9,7 +9,7 @@ export class Nomina {
   id: number;
 
   @Column({ type: 'varchar', length: 20 })
-  periodo: string; 
+  periodo: string;
 
   @Column({
     type: 'enum',

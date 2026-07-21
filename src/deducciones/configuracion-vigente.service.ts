@@ -15,7 +15,9 @@ export class ConfiguracionVigenteService {
     private readonly tramoRepo: Repository<TramoISR>,
   ) {}
 
-  async obtenerConfiguracionVigente(fecha: Date): Promise<ConfiguracionDeduccion> {
+  async obtenerConfiguracionVigente(
+    fecha: Date,
+  ): Promise<ConfiguracionDeduccion> {
     const config = await this.configRepo.findOne({
       where: [
         { vigenteDesde: LessThanOrEqual(fecha), vigenteHasta: MoreThan(fecha) },

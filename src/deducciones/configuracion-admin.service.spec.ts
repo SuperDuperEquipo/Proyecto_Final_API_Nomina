@@ -28,7 +28,10 @@ describe('ConfiguracionAdminService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ConfiguracionAdminService,
-        { provide: getRepositoryToken(ConfiguracionDeduccion), useValue: configRepository },
+        {
+          provide: getRepositoryToken(ConfiguracionDeduccion),
+          useValue: configRepository,
+        },
         { provide: getRepositoryToken(TramoISR), useValue: tramoRepository },
         { provide: getDataSourceToken(), useValue: mockDataSource },
       ],
@@ -57,7 +60,11 @@ describe('ConfiguracionAdminService', () => {
     });
 
     it('cierra automáticamente la configuración anterior al crear una nueva', async () => {
-      const anterior = { id: 1, vigenteDesde: new Date('2020-01-01'), vigenteHasta: null } as ConfiguracionDeduccion;
+      const anterior = {
+        id: 1,
+        vigenteDesde: new Date('2020-01-01'),
+        vigenteHasta: null,
+      } as ConfiguracionDeduccion;
       mockManager.findOne.mockResolvedValue(anterior);
 
       await service.crearConfiguracionDeduccion(dto);
@@ -67,25 +74,58 @@ describe('ConfiguracionAdminService', () => {
     });
 
     it('rechaza si la nueva vigenteDesde no es posterior a la configuración actual', async () => {
-      const anterior = { id: 1, vigenteDesde: new Date('2026-01-01'), vigenteHasta: null } as ConfiguracionDeduccion;
+      const anterior = {
+        id: 1,
+        vigenteDesde: new Date('2026-01-01'),
+        vigenteHasta: null,
+      } as ConfiguracionDeduccion;
       mockManager.findOne.mockResolvedValue(anterior);
 
-      await expect(service.crearConfiguracionDeduccion(dto)).rejects.toThrow(ConflictException);
+      await expect(service.crearConfiguracionDeduccion(dto)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
   describe('crearTramosIsr', () => {
     const tramosValidos = [
-      { numeroTramo: 1, limiteInferior: 0.01, limiteSuperior: 550.0, porcentaje: 0, cuotaFija: 0 },
-      { numeroTramo: 2, limiteInferior: 550.01, limiteSuperior: 895.24, porcentaje: 10, cuotaFija: 17.67 },
-      { numeroTramo: 3, limiteInferior: 895.25, limiteSuperior: 2038.1, porcentaje: 20, cuotaFija: 60.0 },
-      { numeroTramo: 4, limiteInferior: 2038.11, limiteSuperior: null, porcentaje: 30, cuotaFija: 288.57 },
+      {
+        numeroTramo: 1,
+        limiteInferior: 0.01,
+        limiteSuperior: 550.0,
+        porcentaje: 0,
+        cuotaFija: 0,
+      },
+      {
+        numeroTramo: 2,
+        limiteInferior: 550.01,
+        limiteSuperior: 895.24,
+        porcentaje: 10,
+        cuotaFija: 17.67,
+      },
+      {
+        numeroTramo: 3,
+        limiteInferior: 895.25,
+        limiteSuperior: 2038.1,
+        porcentaje: 20,
+        cuotaFija: 60.0,
+      },
+      {
+        numeroTramo: 4,
+        limiteInferior: 2038.11,
+        limiteSuperior: null,
+        porcentaje: 30,
+        cuotaFija: 288.57,
+      },
     ];
 
     it('crea los 4 tramos cuando la numeración y los límites son válidos y contiguos', async () => {
       mockManager.find.mockResolvedValue([]);
 
-      const resultado = await service.crearTramosIsr({ vigenteDesde: '2025-05-08', tramos: tramosValidos as any });
+      const resultado = await service.crearTramosIsr({
+        vigenteDesde: '2025-05-08',
+        tramos: tramosValidos,
+      });
 
       expect(resultado).toHaveLength(4);
     });
@@ -95,7 +135,10 @@ describe('ConfiguracionAdminService', () => {
       const incompletos = tramosValidos.slice(0, 3);
 
       await expect(
-        service.crearTramosIsr({ vigenteDesde: '2025-05-08', tramos: incompletos as any }),
+        service.crearTramosIsr({
+          vigenteDesde: '2025-05-08',
+          tramos: incompletos as any,
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -106,7 +149,10 @@ describe('ConfiguracionAdminService', () => {
       );
 
       await expect(
-        service.crearTramosIsr({ vigenteDesde: '2025-05-08', tramos: conHueco as any }),
+        service.crearTramosIsr({
+          vigenteDesde: '2025-05-08',
+          tramos: conHueco as any,
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -117,17 +163,29 @@ describe('ConfiguracionAdminService', () => {
       );
 
       await expect(
-        service.crearTramosIsr({ vigenteDesde: '2025-05-08', tramos: conLimiteDeMas as any }),
+        service.crearTramosIsr({
+          vigenteDesde: '2025-05-08',
+          tramos: conLimiteDeMas as any,
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('cierra automáticamente los 4 tramos anteriores al crear una vigencia nueva', async () => {
-      const anteriores = tramosValidos.map((t) => ({ ...t, vigenteDesde: new Date('2020-01-01'), vigenteHasta: null }));
+      const anteriores = tramosValidos.map((t) => ({
+        ...t,
+        vigenteDesde: new Date('2020-01-01'),
+        vigenteHasta: null,
+      }));
       mockManager.find.mockResolvedValue(anteriores);
 
-      await service.crearTramosIsr({ vigenteDesde: '2025-05-08', tramos: tramosValidos as any });
+      await service.crearTramosIsr({
+        vigenteDesde: '2025-05-08',
+        tramos: tramosValidos,
+      });
 
-      anteriores.forEach((t) => expect(t.vigenteHasta).toEqual(new Date('2025-05-08')));
+      anteriores.forEach((t) =>
+        expect(t.vigenteHasta).toEqual(new Date('2025-05-08')),
+      );
     });
   });
 });

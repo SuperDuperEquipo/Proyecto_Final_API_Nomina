@@ -53,7 +53,7 @@ export class Novedad {
   @Column({ type: 'varchar', length: 255, nullable: true })
   descripcion: string | null;
 
-  // Distingue una bonificación habitual o recurrente 
+  // Distingue una bonificación habitual o recurrente
   @Column({ type: 'boolean', default: false })
   afectaBasePrestaciones: boolean;
 

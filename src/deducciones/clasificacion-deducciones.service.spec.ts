@@ -42,12 +42,18 @@ describe('ClasificacionDeduccionesService', () => {
   });
 
   it('HORAS_EXTRA y BONIFICACION no llevan tope individual de AFP', () => {
-    expect(service.clasificar(TipoNovedad.HORAS_EXTRA, null).topeIndividualAFP).toBeUndefined();
-    expect(service.clasificar(TipoNovedad.BONIFICACION, true).topeIndividualAFP).toBeUndefined();
+    expect(
+      service.clasificar(TipoNovedad.HORAS_EXTRA, null).topeIndividualAFP,
+    ).toBeUndefined();
+    expect(
+      service.clasificar(TipoNovedad.BONIFICACION, true).topeIndividualAFP,
+    ).toBeUndefined();
   });
 
   it('PERMISO_SIN_GOCE: lanza error porque no se maneja con esta clasificación', () => {
-    expect(() => service.clasificar(TipoNovedad.PERMISO_SIN_GOCE, null)).toThrow();
+    expect(() =>
+      service.clasificar(TipoNovedad.PERMISO_SIN_GOCE, null),
+    ).toThrow();
   });
 
   it('DESCUENTO: lanza error porque no se maneja con esta clasificación', () => {

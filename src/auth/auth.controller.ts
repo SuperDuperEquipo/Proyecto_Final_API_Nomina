@@ -10,9 +10,15 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @ApiOperation({ summary: 'Registrar un nuevo empleado' })
-  @ApiResponse({ status: 201, description: 'Empleado registrado exitosamente.' })
+  @ApiResponse({
+    status: 201,
+    description: 'Empleado registrado exitosamente.',
+  })
   @ApiResponse({ status: 400, description: 'Datos de entrada inválidos.' })
-  @ApiResponse({ status: 409, description: 'El DUI o Correo ingresado ya existe.' })
+  @ApiResponse({
+    status: 409,
+    description: 'El DUI o Correo ingresado ya existe.',
+  })
   @Post('register')
   register(@Body() createEmpleadoDto: CreateEmpleadoDto) {
     return this.authService.register(createEmpleadoDto);
