@@ -54,9 +54,10 @@ export class NominaService {
 
   // ABIERTA -> CERRADA: congela el registro de novedades (P3 ya rechaza
   // creación/edición de novedades para cualquier estado distinto de ABIERTA)
-  // y, para nóminas REGULAR, corre el motor de cálculo y persiste el
-  // desglose por empleado. Las ESPECIAL (Quincena 25, Aguinaldo) no pasan
-  // por este motor todavía: su monto se captura aparte (ver Fase 3).
+  // y corre el motor de cálculo correspondiente. REGULAR combina salario
+  // prorrateado + novedades + deducciones de ley; ESPECIAL (Quincena 25,
+  // Aguinaldo) calcula el pago puntual a partir de salario y antigüedad,
+  // sin consultar novedades (ver README de nómina).
   async cerrar(id: number): Promise<Nomina> {
     const nomina = await this.findOne(id);
     if (nomina.estado !== EstadoNomina.ABIERTA) {
@@ -67,6 +68,8 @@ export class NominaService {
 
     if (nomina.tipo === TipoNomina.REGULAR) {
       await this.nominaCalculoService.calcularPeriodoRegular(nomina);
+    } else {
+      await this.nominaCalculoService.calcularNominaEspecial(nomina);
     }
 
     nomina.estado = EstadoNomina.CERRADA;

@@ -1,6 +1,6 @@
 # Módulo de Nómina
 
-Gestiona el ciclo de vida de una planilla (`Nomina`): apertura, cálculo del desglose por empleado al cerrarla, reapertura para corregir novedades, y aprobación final e irreversible. Para nóminas `REGULAR` corre el motor de cálculo (`NominaCalculoService`) que combina salario base prorrateado, novedades del período (horas extra, permisos, bonificaciones, descuentos) y las deducciones de ley (ISSS, AFP, ISR) para producir un `DetalleNomina` por empleado.
+Gestiona el ciclo de vida de una planilla (`Nomina`): apertura, cálculo del desglose por empleado al cerrarla, reapertura para corregir novedades, y aprobación final e irreversible. `NominaCalculoService` corre uno de dos motores de cálculo según `tipo`: para `REGULAR`, combina salario base prorrateado, novedades del período (horas extra, permisos, bonificaciones, descuentos) y las deducciones de ley (ISSS, AFP, ISR); para `ESPECIAL` (Quincena 25, Aguinaldo), calcula el pago puntual a partir del salario y la antigüedad del empleado. Ambos motores producen un `DetalleNomina` por empleado. Ver decisión #11 sobre por qué Aguinaldo se calcula aquí y no en P5, pese a que el documento de consultoría cita su fórmula legal bajo el Sector 5.
 
 ## Información General
 
@@ -15,16 +15,19 @@ Todos los endpoints están protegidos por `JwtAuthGuard` + `RolesGuard`. Requier
 ### 1. Crear período de nómina
 - **Ruta:** `POST /nomina`
 - **Permisos:** Solo `ADMIN` o `RECURSOS_HUMANOS`.
-- **Cuerpo (DTO):** `CreateNominaDto`
+- **Cuerpo (DTO):** `CreateNominaDto`. El formato de `periodo` y su ventana válida dependen de `tipo`/`subtipoEspecial` (ver decisión #9):
   ```json
-  {
-    "periodo": "2026-07-Q2",
-    "tipo": "REGULAR"
-  }
+  { "periodo": "2026-07-Q2", "tipo": "REGULAR" }
+  ```
+  ```json
+  { "periodo": "2026-01-20", "tipo": "ESPECIAL", "subtipoEspecial": "QUINCENA_25" }
+  ```
+  ```json
+  { "periodo": "2026-12-01", "tipo": "ESPECIAL", "subtipoEspecial": "AGUINALDO" }
   ```
 - **Respuestas:**
   - `201 Created`: nómina creada en estado `ABIERTA`.
-  - `400 Bad Request`: `periodo` con formato inválido, o `subtipoEspecial` incoherente con `tipo` (ver decisión #2).
+  - `400 Bad Request`: `periodo` con formato inválido o fuera de la ventana legal para el `tipo`/`subtipoEspecial` enviado, o `subtipoEspecial` incoherente con `tipo` (ver decisiones #2 y #9).
 
 ### 2. Listar nóminas
 - **Ruta:** `GET /nomina`
@@ -45,7 +48,7 @@ Todos los endpoints están protegidos por `JwtAuthGuard` + `RolesGuard`. Requier
 ### 5. Cerrar una nómina
 - **Ruta:** `PATCH /nomina/:id/cerrar`
 - **Permisos:** Solo `ADMIN` o `RECURSOS_HUMANOS`.
-- **Efecto:** `ABIERTA -> CERRADA`. Para `tipo = REGULAR` corre `NominaCalculoService.calcularPeriodoRegular` y persiste el detalle; para `ESPECIAL` solo cambia de estado (ver limitación conocida más abajo).
+- **Efecto:** `ABIERTA -> CERRADA`. Para `tipo = REGULAR` corre `NominaCalculoService.calcularPeriodoRegular`; para `ESPECIAL` corre `calcularNominaEspecial` (Quincena 25 o Aguinaldo según `subtipoEspecial`). Ambos persisten el detalle por empleado.
 - **Respuestas:** `200 OK` / `404 Not Found` / `409 Conflict` si no está `ABIERTA`.
 
 ### 6. Reabrir una nómina
@@ -77,7 +80,13 @@ Todos los endpoints están protegidos por `JwtAuthGuard` + `RolesGuard`. Requier
 6. **Clasificación de novedades delegada a `ClasificacionDeduccionesService` (módulo `deducciones`):** este módulo no decide por sí mismo si una `HORAS_EXTRA` o `BONIFICACION` cuenta para las bases de ISSS/AFP/ISR; reutiliza el mismo servicio que ya centraliza esa regla para mantener una sola fuente de verdad entre módulos.
 7. **`DESCUENTO` se resta del líquido a pagar, nunca de las bases ISSS/AFP/ISR; `PERMISO_SIN_GOCE` resta días de devengado, no un monto de deducción:** consistente con la decisión #8 documentada en el README de `deducciones`.
 8. **`LICENCIA_MATERNIDAD` no aporta un monto adicional en el cálculo actual (gap de modelo conocido):** el modelo de `Novedad` no captura un monto de subsidio para este tipo. Su salario ordinario del período igual se paga con normalidad porque, a diferencia de `PERMISO_SIN_GOCE`, ninguna novedad de este tipo resta del devengado; lo que falta es la lógica de subsidio ISSS documentada en el README de `deducciones` (decisión #7), pendiente de que `novedades` capture ese monto.
-9. **Nómina `ESPECIAL` (Quincena 25, Aguinaldo) validada pero no calculada todavía:** `cerrar()` solo cambia el estado a `CERRADA` para este tipo, sin invocar el motor de cálculo. Ver limitación conocida abajo.
+9. **`periodo` tiene dos formatos según `tipo`, y cada `subtipoEspecial` valida además su propia ventana legal:** `AAAA-MM-Q1/Q2` para `REGULAR` (un ciclo quincenal recurrente); `AAAA-MM-DD` para `ESPECIAL` (la fecha de pago puntual), validada además contra la ventana de ley del subtipo: **15–25 de enero** para Quincena 25 (Ley Especial, D.L. 499/2026) y **20 de octubre–20 de diciembre** para Aguinaldo (Art. 200 CT, reforma 2025). No se reutilizó el formato quincenal para `ESPECIAL` porque ninguno de los dos pagos es una quincena; y la ventana se valida en el DTO (no solo se documenta) porque el Sector 4 de la consultoría la presenta como "fijo por ley", no como decisión de negocio — igual que el sistema debe bloquear un salario bajo el mínimo en el módulo de empleados.
+10. **Quincena 25 (Ley Especial, Decreto Legislativo 499, enero 2026): 50% del salario nominal, exclusiva para salario ≤ $1,500/mes, exenta de ISSS/AFP/ISR:** `calcularNominaEspecial` excluye directamente (no incluye con monto $0) a los empleados con `salarioBase` por encima del tope, igual que `calcularPeriodoRegular` excluye a quien aún no ha sido contratado. No se prorratea por antigüedad: la ley no lo pide, es un monto fijo para quien califica.
+11. **Aguinaldo SÍ se calcula en P4, no solo Quincena 25 — nota de honestidad metodológica sobre esta decisión:** el documento de consultoría no es inequívoco sobre a quién le toca la fórmula de Aguinaldo. El Sector 4 (P4) titula su alcance explícitamente como *"...nóminas especiales"* y usa Quincena 25 como ejemplo completo de por qué esa función existe; el Sector 5 (P5, "Comprobantes, **prestaciones proporcionales** y reportes") es donde aparece citada la fórmula completa de Aguinaldo (Art. 196–202 CT). Se interpretó que esa cita bajo Sector 5 evita repetir el mismo texto legal dos veces en el documento, no que le quite a P4 la responsabilidad de calcular una de sus propias "nóminas especiales": Aguinaldo (Art. 196–198 CT: 15/19/21 días según antigüedad, proporcional antes del año — Art. 197) se calcula aquí igual que Quincena 25, reutilizando `salarioBase/30` como valor del día (misma convención que `REGULAR`, para no introducir una segunda definición de "día de salario"). **Se recomienda confirmar este reparto con quien lleve P5 antes de la defensa**, para que ambos den la misma respuesta si el experto pregunta quién calculó el aguinaldo.
+12. **ISR del Aguinaldo: exento hasta $1,500 (reforma 2025), se grava solo el exceso con la tabla progresiva vigente; Quincena 25 está completamente exenta de ISR:** no se encontró una tabla de retención específica para aguinaldo distinta de la de salario ordinario, así que se reutiliza `IsrCalculoService` sobre `monto − 1500`. **Nota de honestidad metodológica:** el mecanismo exacto (si el exceso se grava aislado o junto al salario ordinario del mes) no está confirmado contra una fuente primaria — verificar con el Ministerio de Hacienda antes de la defensa.
+13. **Ambos tipos de nómina ESPECIAL quedan exentos de ISSS y AFP en su totalidad (`baseIsss = baseAfp = 0`):** el Sector 2 de la consultoría confirma que aguinaldo y Quincena 25 no cotizan ISSS/AFP; a diferencia del ISR, ninguna fuente revisada menciona un tope parcial para estas dos cotizaciones en ninguno de los dos pagos, así que se modelan como 100% exentos en vez de aplicar un umbral parcial no verificado.
+14. **`ESPECIAL` no consulta `Novedad`:** a diferencia de `REGULAR`, el motor de cálculo especial no suma horas extra, bonificaciones ni descuentos del período — Quincena 25 y Aguinaldo se calculan solo a partir de salario y antigüedad. Esto también protege el carácter "inembargable" de Quincena 25 (Sector 4): ningún `DESCUENTO` disciplinario puede aplicarse contra ese pago porque el motor de cálculo ni siquiera lo consulta.
+15. **No existe una regla de exclusividad entre una nómina `ESPECIAL` y una `REGULAR` `ABIERTA` al mismo tiempo:** `create()` no lo valida en ningún sentido, así que hoy pueden coexistir. Es una decisión por omisión, no una prohibición ni una garantía explícita: una empresa podría necesitar cerrar el Aguinaldo de diciembre mientras la quincena regular del mes sigue abierta, y no hay motivo legal para bloquear eso.
 
 ---
 
@@ -94,13 +103,26 @@ Todos los endpoints están protegidos por `JwtAuthGuard` + `RolesGuard`. Requier
 - **`LICENCIA_MATERNIDAD` sin monto:** no suma nada al devengado (ver decisión #8); cubierto explícitamente con un test que documenta el gap.
 - **Nunca reabrir ni aprobar dos veces una nómina `APROBADA`:** ambas rutas lanzan `409 Conflict`.
 - **`aprobar` exige `CERRADA` primero:** una nómina todavía `ABIERTA` no puede aprobarse directamente.
+- **Quincena 25 excluye a quien gana más de $1,500:** no aparece en el detalle con monto $0, simplemente no se genera su fila.
+- **Quincena 25 sin ningún empleado elegible:** devuelve un arreglo vacío, igual que `REGULAR` sin empleados vigentes.
+- **Ventana de pago de Quincena 25:** acepta el 15 y el 25 de enero (límites inclusive) y cualquier fecha entre medio; rechaza el 14 de enero, el 26 de enero y cualquier fecha fuera de enero.
+- **Ventana de pago de Aguinaldo:** acepta el 20 de octubre y el 20 de diciembre (límites inclusive); rechaza el 19 de octubre, el 21 de diciembre y fechas fuera de esa ventana.
+- **Aguinaldo en cada tramo de antigüedad:** verificado para 1–3 años (15 días), 3–10 años (19 días) y 10+ años (21 días).
+- **Aguinaldo con menos de un año de antigüedad:** prorrateado por días trabajados sobre 365 usando la tasa del primer tramo (Art. 197).
+- **Aguinaldo por debajo del umbral de $1,500:** ISR = $0, sin necesidad de que la base gravable llegue a ser negativa.
+- **Aguinaldo por encima de $1,500:** solo el excedente entra a `IsrCalculoService`, no el monto completo.
+- **Ambos pagos especiales nunca generan `baseIsss`/`baseAfp` mayores a $0.**
 
 ---
 
 ## Limitaciones Conocidas / Trabajo Futuro
 
-- **Nómina `ESPECIAL` (Quincena 25, Aguinaldo) sin motor de cálculo:** el tipo y su `subtipoEspecial` ya están modelados y validados a nivel de DTO/entidad, pero `calcularPeriodoRegular` solo corre para `tipo = REGULAR`. Cada subtipo especial tiene reglas de elegibilidad y exención propias (distintas entre Quincena 25 y Aguinaldo) que quedan fuera del alcance de esta fase; `cerrar()` para `ESPECIAL` únicamente cambia de estado.
 - **Subsidio de `LICENCIA_MATERNIDAD`:** para calcularlo con exactitud, `novedades` necesitaría capturar el monto del subsidio (o los días cubiertos) en vez de solo el tipo de la novedad. Ver decisión #8 y la limitación equivalente en `src/deducciones/README.md`.
+- **Reparto P4/P5 del cálculo de Aguinaldo no confirmado con el equipo (ver decisión #11):** se implementó en P4 por una lectura razonada del documento de consultoría, no por una instrucción inequívoca. Si quien lleva P5 ya construyó (o va a construir) su propio cálculo de Aguinaldo, hay riesgo de lógica duplicada o inconsistente entre ambos módulos — coordinar antes de la defensa.
+- **Mecanismo exacto del ISR sobre el exceso del Aguinaldo no verificado contra fuente primaria:** ver decisión #12. Se aplica la tabla progresiva de `IsrCalculoService` sobre `monto − 1500`, pero no se confirmó si el Ministerio de Hacienda trata ese excedente de forma aislada o acumulada con el salario ordinario del mes de pago.
+- **Sin regla de exclusividad entre `ESPECIAL` y `REGULAR` abiertas simultáneamente:** ver decisión #15. Es el comportamiento actual por ausencia de validación, no una decisión de negocio confirmada; si el equipo decide bloquear (o exigir) la coexistencia, se implementaría como una verificación adicional en `NominaService.create`.
+- **Antigüedad para Aguinaldo usa `365.25` días/año de forma continua, sin anclarse a un año calendario o aniversario fijo de contratación:** suficiente para las reglas de negocio actuales, pero no se validó contra un caso de auditoría real con años bisiestos en el límite exacto de un tramo.
+- **Qué pasa si la fecha de pago de un `ESPECIAL` cae en día no hábil:** no se ajusta automáticamente al día hábil anterior. El Sector 4 de la consultoría marca esto como costumbre/política de empresa, no como mandato legal único, así que quedó fuera de la validación de ventana (decisión #9) — sí conviene tener la respuesta lista para la defensa.
 
 ---
 
@@ -112,6 +134,7 @@ Todos los endpoints están protegidos por `JwtAuthGuard` + `RolesGuard`. Requier
   - **Deducciones:** `ClasificacionDeduccionesService`, `ConfiguracionVigenteService`, `IsssAfpCalculoService` e `IsrCalculoService` para clasificar novedades y calcular ISSS, AFP e ISR.
 - **A quién le sirve:**
   - **Comprobantes:** consumirá `GET /nomina/:id/detalle` de una nómina `APROBADA` para generar los recibos de pago.
+- **Por confirmar con P5:** este módulo calcula el monto de Aguinaldo (ver decisión #11), aunque su fórmula legal está citada en la consultoría bajo el Sector 5 ("prestaciones proporcionales"). Antes de la defensa, confirmar con quien lleve P5 que no hay una implementación paralela o distinta ahí.
 
 ---
 

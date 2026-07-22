@@ -14,6 +14,7 @@ import { IsssAfpCalculoService } from '../deducciones/isss-afp-calculo.service';
 import { IsrCalculoService } from '../deducciones/isr-calculo.service';
 import { EstadoNomina } from './enums/estado-nomina.enum';
 import { TipoNomina } from './enums/tipo-nomina.enum';
+import { SubtipoNominaEspecial } from './enums/subtipo-nomina-especial.enum';
 
 describe('NominaCalculoService', () => {
   let service: NominaCalculoService;
@@ -371,6 +372,202 @@ describe('NominaCalculoService', () => {
       expect(empleadoRepository.find).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.any(Object) }),
       );
+    });
+  });
+
+  describe('obtenerFechaPagoEspecial', () => {
+    it('parses AAAA-MM-DD as the payment date', () => {
+      expect(service.obtenerFechaPagoEspecial('2026-01-20')).toEqual(
+        new Date(2026, 0, 20),
+      );
+    });
+
+    it('throws on an invalid format', () => {
+      expect(() => service.obtenerFechaPagoEspecial('2026-01-Q1')).toThrow();
+    });
+  });
+
+  describe('calcularNominaEspecial', () => {
+    const nominaQuincena25: Nomina = {
+      id: 5,
+      periodo: '2026-01-20',
+      tipo: TipoNomina.ESPECIAL,
+      subtipoEspecial: SubtipoNominaEspecial.QUINCENA_25,
+      estado: EstadoNomina.ABIERTA,
+      fechaAprobacion: null,
+    };
+
+    const nominaAguinaldo: Nomina = {
+      id: 6,
+      periodo: '2026-11-01',
+      tipo: TipoNomina.ESPECIAL,
+      subtipoEspecial: SubtipoNominaEspecial.AGUINALDO,
+      estado: EstadoNomina.ABIERTA,
+      fechaAprobacion: null,
+    };
+
+    describe('QUINCENA_25', () => {
+      it('clears previous detalle rows before recalculating', async () => {
+        empleadoRepository.find.mockResolvedValue([]);
+
+        await service.calcularNominaEspecial(nominaQuincena25);
+
+        expect(detalleNominaRepository.delete).toHaveBeenCalledWith({
+          nominaId: 5,
+        });
+      });
+
+      it('pays 50% of the nominal salary, exempt from ISSS/AFP/ISR', async () => {
+        empleadoRepository.find.mockResolvedValue([empleado]); // salarioBase 900
+
+        const [detalle] =
+          await service.calcularNominaEspecial(nominaQuincena25);
+
+        expect(detalle.salarioBase).toBe(450); // 900 * 0.5
+        expect(detalle.totalDevengado).toBe(450);
+        expect(detalle.baseIsss).toBe(0);
+        expect(detalle.baseAfp).toBe(0);
+        expect(detalle.isr).toBe(0);
+        expect(detalle.liquidoAPagar).toBe(450);
+        expect(isrCalculoService.calcular).not.toHaveBeenCalled();
+        expect(
+          configuracionVigenteService.obtenerTramosIsrVigentes,
+        ).not.toHaveBeenCalled();
+      });
+
+      it('excludes empleados earning above the $1,500 eligibility cap', async () => {
+        const empleadoCaro: Empleado = {
+          ...empleado,
+          id: 2,
+          salarioBase: 2000,
+        };
+        empleadoRepository.find.mockResolvedValue([empleado, empleadoCaro]);
+
+        const result = await service.calcularNominaEspecial(nominaQuincena25);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].empleadoId).toBe(1);
+      });
+
+      it('returns an empty array when no empleado is eligible', async () => {
+        const empleadoCaro: Empleado = {
+          ...empleado,
+          id: 2,
+          salarioBase: 2000,
+        };
+        empleadoRepository.find.mockResolvedValue([empleadoCaro]);
+
+        const result = await service.calcularNominaEspecial(nominaQuincena25);
+
+        expect(result).toEqual([]);
+      });
+    });
+
+    describe('AGUINALDO', () => {
+      it('pays 15 días for 1 to less than 3 years of service', async () => {
+        const empleadoTenure: Empleado = {
+          ...empleado,
+          fechaIngreso: new Date(2024, 0, 1), // ~2.83 años antes del pago
+        };
+        empleadoRepository.find.mockResolvedValue([empleadoTenure]);
+        isrCalculoService.calcular.mockReturnValue(0);
+
+        const [detalle] = await service.calcularNominaEspecial(nominaAguinaldo);
+
+        // 15 días * (900/30) = 450
+        expect(detalle.salarioBase).toBe(450);
+        expect(detalle.baseIsss).toBe(0);
+        expect(detalle.baseAfp).toBe(0);
+      });
+
+      it('pays 19 días for 3 to less than 10 years of service', async () => {
+        const empleadoTenure: Empleado = {
+          ...empleado,
+          fechaIngreso: new Date(2020, 0, 1), // ~6.83 años antes del pago
+        };
+        empleadoRepository.find.mockResolvedValue([empleadoTenure]);
+        isrCalculoService.calcular.mockReturnValue(0);
+
+        const [detalle] = await service.calcularNominaEspecial(nominaAguinaldo);
+
+        // 19 días * (900/30) = 570
+        expect(detalle.salarioBase).toBe(570);
+      });
+
+      it('pays 21 días for 10 or more years of service', async () => {
+        const empleadoTenure: Empleado = {
+          ...empleado,
+          fechaIngreso: new Date(2010, 0, 1), // ~16.83 años antes del pago
+        };
+        empleadoRepository.find.mockResolvedValue([empleadoTenure]);
+        isrCalculoService.calcular.mockReturnValue(0);
+
+        const [detalle] = await service.calcularNominaEspecial(nominaAguinaldo);
+
+        // 21 días * (900/30) = 630
+        expect(detalle.salarioBase).toBe(630);
+      });
+
+      it('prorates for less than 1 year of service (Art. 197)', async () => {
+        const fechaPago = new Date(2026, 10, 1);
+        const empleadoReciente: Empleado = {
+          ...empleado,
+          fechaIngreso: new Date(fechaPago.getTime() - 73 * 86400000), // 73/365 = 20%
+        };
+        empleadoRepository.find.mockResolvedValue([empleadoReciente]);
+        isrCalculoService.calcular.mockReturnValue(0);
+
+        const [detalle] = await service.calcularNominaEspecial(nominaAguinaldo);
+
+        // (73/365) * 15 días = 3 días; 3 * (900/30) = 90
+        expect(detalle.salarioBase).toBe(90);
+      });
+
+      it('is exempt from ISR up to $1,500 (reforma 2025)', async () => {
+        const empleadoTenure: Empleado = {
+          ...empleado,
+          fechaIngreso: new Date(2024, 0, 1), // 15 días -> monto 450
+        };
+        empleadoRepository.find.mockResolvedValue([empleadoTenure]);
+
+        const [detalle] = await service.calcularNominaEspecial(nominaAguinaldo);
+
+        expect(detalle.baseIsrGravable).toBe(0);
+        expect(isrCalculoService.calcular).toHaveBeenCalledWith(0, tramosIsr);
+      });
+
+      it('taxes only the excess over $1,500', async () => {
+        const empleadoAltoSalario: Empleado = {
+          ...empleado,
+          salarioBase: 5000,
+          fechaIngreso: new Date(2010, 0, 1), // 21 días -> monto 3500
+        };
+        empleadoRepository.find.mockResolvedValue([empleadoAltoSalario]);
+        isrCalculoService.calcular.mockReturnValue(50);
+
+        const [detalle] = await service.calcularNominaEspecial(nominaAguinaldo);
+
+        expect(detalle.salarioBase).toBe(3500);
+        expect(detalle.baseIsrGravable).toBe(2000); // 3500 - 1500
+        expect(isrCalculoService.calcular).toHaveBeenCalledWith(
+          2000,
+          tramosIsr,
+        );
+        expect(detalle.isr).toBe(50);
+        expect(detalle.liquidoAPagar).toBe(3450);
+      });
+
+      it('is not subject to ISSS/AFP', async () => {
+        empleadoRepository.find.mockResolvedValue([empleado]);
+        isrCalculoService.calcular.mockReturnValue(0);
+
+        const [detalle] = await service.calcularNominaEspecial(nominaAguinaldo);
+
+        expect(detalle.baseIsss).toBe(0);
+        expect(detalle.baseAfp).toBe(0);
+        expect(detalle.issssTrabajador).toBe(0);
+        expect(detalle.afpTrabajador).toBe(0);
+      });
     });
   });
 });
