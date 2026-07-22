@@ -6,8 +6,10 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { ConfiguracionAdminService } from './configuracion-admin.service';
+import { SimulacionDeduccionesService } from './simulacion-deducciones.service';
 import { CreateConfiguracionDeduccionDto } from './dto/create-configuracion-deduccion.dto';
 import { CreateTramosIsrVigenciaDto } from './dto/create-tramos-isr-vigencia.dto';
+import { SimularDeduccionesDto } from './dto/simular-deducciones.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -20,6 +22,7 @@ import { EmpleadoRole } from '../empleados/entities/empleado.entity';
 export class DeduccionesController {
   constructor(
     private readonly configuracionAdminService: ConfiguracionAdminService,
+    private readonly simulacionService: SimulacionDeduccionesService,
   ) {}
 
   @ApiOperation({
@@ -74,5 +77,14 @@ export class DeduccionesController {
   @Get('tramos-isr')
   listarTramosIsr() {
     return this.configuracionAdminService.listarTramosIsr();
+  }
+
+  @ApiOperation({ summary: 'Simular ISSS/AFP/ISR para un salario, con o sin bonificación (ADMIN y RECURSOS_HUMANOS). No persiste nada, es solo cálculo.' })
+  @ApiResponse({ status: 200, description: 'Desglose de deducciones y salario neto.' })
+  @ApiResponse({ status: 422, description: 'Falta configurar tasas o tramos para esa fecha.' })
+  @Roles(EmpleadoRole.ADMIN, EmpleadoRole.RECURSOS_HUMANOS)
+  @Post('simular')
+  simular(@Body() dto: SimularDeduccionesDto) {
+    return this.simulacionService.simular(dto);
   }
 }

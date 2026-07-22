@@ -17,7 +17,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Susana Beltrán\",\n  \"dui\": \"01234567-8\",\n  \"email\": \"susana@nomina.com\",\n  \"password\": \"password123\",\n  \"salarioBase\": 1200.00,\n  \"cargo\": \"Desarrollador Backend\",\n  \"area\": \"Tecnología\",\n  \"fechaIngreso\": \"2026-07-15\",\n  \"afp\": \"AFP Crecer\",\n  \"rol\": \"ADMIN\"\n}",
+							"raw": "{\n  \"nombre\": \"Susana Beltrán\",\n  \"tipoDocumento\": \"DUI\",\n  \"documentoIdentidad\": \"01234567-8\",\n  \"email\": \"susana@nomina.com\",\n  \"password\": \"password123\",\n  \"salarioBase\": 1200.0,\n  \"cargo\": \"Desarrollador Backend\",\n  \"area\": \"Tecnología\",\n  \"fechaIngreso\": \"2026-07-15\",\n  \"afp\": \"AFP Crecer\",\n  \"rol\": \"ADMIN\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -44,7 +44,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"email\": \"susana@nomina.com\",\n  \"password\": \"password123\"\n}",
+							"raw": "{\n  \"documentoIdentidad\": \"01234567-8\",\n  \"password\": \"password123\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -230,8 +230,287 @@
 		},
 		{
 			"name": "Deducciones",
-			"description": "Módulo asignado a Persona 2 (Deducciones e ISR).",
-			"item": []
+			"description": "Configuración de deducciones legales (ISSS, AFP, ISR) y simulación de cálculo. Requiere token de ADMIN (peticiones 1-4) o ADMIN/RECURSOS_HUMANOS (peticiones 5-8).",
+			"item": [
+				{
+					"name": "1. Cargar tasas ISSS/AFP",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/deducciones/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"deducciones",
+								"configuracion"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vigenteDesde\": \"2025-05-08\",\n  \"issssPctTrabajador\": 3,\n  \"issssPctPatronal\": 7.5,\n  \"issssTopeBase\": 1000,\n  \"afpPctTrabajador\": 7.25,\n  \"afpPctPatronal\": 8.75\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "2. Listar configuración ISSS/AFP",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/deducciones/configuracion",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"deducciones",
+								"configuracion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "3. Cargar tabla de ISR (4 tramos)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/deducciones/tramos-isr",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"deducciones",
+								"tramos-isr"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vigenteDesde\": \"2025-05-08\",\n  \"tramos\": [\n    {\n      \"numeroTramo\": 1,\n      \"limiteInferior\": 0.01,\n      \"limiteSuperior\": 550.0,\n      \"porcentaje\": 0,\n      \"cuotaFija\": 0\n    },\n    {\n      \"numeroTramo\": 2,\n      \"limiteInferior\": 550.01,\n      \"limiteSuperior\": 895.24,\n      \"porcentaje\": 10,\n      \"cuotaFija\": 17.67\n    },\n    {\n      \"numeroTramo\": 3,\n      \"limiteInferior\": 895.25,\n      \"limiteSuperior\": 2038.1,\n      \"porcentaje\": 20,\n      \"cuotaFija\": 60.0\n    },\n    {\n      \"numeroTramo\": 4,\n      \"limiteInferior\": 2038.11,\n      \"limiteSuperior\": null,\n      \"porcentaje\": 30,\n      \"cuotaFija\": 288.57\n    }\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "4. Listar tabla de ISR",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/deducciones/tramos-isr",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"deducciones",
+								"tramos-isr"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "5. Simular - salario sin bonificación",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/deducciones/simular",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"deducciones",
+								"simular"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"salarioBase\": 850,\n  \"fecha\": \"2026-07-22\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "6. Simular - bonificación HABITUAL",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/deducciones/simular",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"deducciones",
+								"simular"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"salarioBase\": 850,\n  \"fecha\": \"2026-07-22\",\n  \"bonificacion\": {\n    \"monto\": 100,\n    \"habitual\": true\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "7. Simular - bonificación OCASIONAL",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/deducciones/simular",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"deducciones",
+								"simular"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"salarioBase\": 850,\n  \"fecha\": \"2026-07-22\",\n  \"bonificacion\": {\n    \"monto\": 100,\n    \"habitual\": false\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "8. Simular - error 422 sin configuración vigente",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/deducciones/simular",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"deducciones",
+								"simular"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"salarioBase\": 850,\n  \"fecha\": \"2020-01-01\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				}
+			]
 		},
 		{
 			"name": "Novedades",
