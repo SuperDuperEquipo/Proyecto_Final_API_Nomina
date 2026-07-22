@@ -25,21 +25,21 @@ import { decimalTransformer } from '../../common/transformers/decimal.transforme
 @Entity('detalles_nomina')
 export class DetalleNomina {
   @PrimaryGeneratedColumn()
-  id: number;
+  id!: number;
 
   @ManyToOne(() => Nomina, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'nominaId' })
-  nomina: Nomina;
+  nomina!: Nomina;
 
   @Column()
-  nominaId: number;
+  nominaId!: number;
 
   @ManyToOne(() => Empleado, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'empleadoId' })
-  empleado: Empleado;
+  empleado!: Empleado;
 
   @Column()
-  empleadoId: number;
+  empleadoId!: number;
 
   // Devengado ordinario ya prorrateado (cambios de salario a mitad de
   // período) y ya neto de días de PERMISO_SIN_GOCE.
@@ -49,7 +49,7 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  salarioBase: number;
+  salarioBase!: number;
 
   @Column({
     type: 'decimal',
@@ -57,7 +57,7 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  montoHorasExtra: number;
+  montoHorasExtra!: number;
 
   @Column({
     type: 'decimal',
@@ -65,7 +65,31 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  montoBonificaciones: number;
+  montoBonificaciones!: number;
+
+  @Column({
+  type: 'decimal',
+  precision: 10,
+  scale: 2,
+  transformer: decimalTransformer,
+  default: 0,
+})
+montoPrestacion!: number;
+
+@Column({
+  type: 'decimal',
+  precision: 8,
+  scale: 4,
+  transformer: decimalTransformer,
+  nullable: true,
+})
+diasPrestacion!: number | null;
+
+@Column({
+  type: 'boolean',
+  default: false,
+})
+prestacionProporcional!: boolean;
 
   // DESCUENTO: se resta del líquido, nunca de las bases de ISSS/AFP/ISR.
   @Column({
@@ -74,7 +98,7 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  montoDescuentos: number;
+  montoDescuentos!: number;
 
   @Column({
     type: 'decimal',
@@ -82,7 +106,7 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  totalDevengado: number;
+  totalDevengado!: number;
 
   @Column({
     type: 'decimal',
@@ -90,7 +114,7 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  baseIsss: number;
+  baseIsss!: number;
 
   @Column({
     type: 'decimal',
@@ -98,7 +122,7 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  baseAfp: number;
+  baseAfp!: number;
 
   // Base gravable de ISR = base ISR bruta - ISSS trabajador - AFP trabajador
   @Column({
@@ -107,7 +131,7 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  baseIsrGravable: number;
+  baseIsrGravable!: number;
 
   @Column({
     type: 'decimal',
@@ -115,7 +139,7 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  issssTrabajador: number;
+  issssTrabajador!: number;
 
   @Column({
     type: 'decimal',
@@ -123,7 +147,7 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  issssPatronal: number;
+  issssPatronal!: number;
 
   @Column({
     type: 'decimal',
@@ -131,7 +155,7 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  afpTrabajador: number;
+  afpTrabajador!: number;
 
   @Column({
     type: 'decimal',
@@ -139,7 +163,7 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  afpPatronal: number;
+  afpPatronal!: number;
 
   @Column({
     type: 'decimal',
@@ -147,7 +171,7 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  isr: number;
+  isr!: number;
 
   @Column({
     type: 'decimal',
@@ -155,7 +179,7 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  totalDeducciones: number;
+  totalDeducciones!: number;
 
   @Column({
     type: 'decimal',
@@ -163,8 +187,8 @@ export class DetalleNomina {
     scale: 2,
     transformer: decimalTransformer,
   })
-  liquidoAPagar: number;
+  liquidoAPagar!: number;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 }
