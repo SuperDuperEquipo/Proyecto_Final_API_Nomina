@@ -531,8 +531,248 @@
 		},
 		{
 			"name": "Novedades",
-			"description": "Módulo asignado a Persona 3 (Horas extra, permisos, bonificaciones y descuentos).",
-			"item": []
+			"description": "Módulo asignado a Persona 3 (Horas extra, permisos, bonificaciones y descuentos). Requiere token de ADMIN o RECURSOS_HUMANOS. La nómina referenciada debe estar en estado ABIERTA para crear, editar o eliminar (Art. 53.I CT).",
+			"item": [
+				{
+					"name": "1. Crear Novedad - HORAS_EXTRA",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"empleadoId\": 1,\n  \"nominaId\": 1,\n  \"tipo\": \"HORAS_EXTRA\",\n  \"fecha\": \"2026-07-15\",\n  \"horas\": 5,\n  \"subtipoHoraExtra\": \"DIURNA\",\n  \"descripcion\": \"Horas extra por cierre de mes\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/novedades",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"novedades"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "2. Crear Novedad - BONIFICACION",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"empleadoId\": 1,\n  \"nominaId\": 1,\n  \"tipo\": \"BONIFICACION\",\n  \"fecha\": \"2026-07-15\",\n  \"monto\": 50,\n  \"afectaBasePrestaciones\": false,\n  \"descripcion\": \"Bono ocasional por desempeño\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/novedades",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"novedades"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "3. Obtener Todas las Novedades",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/novedades",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"novedades"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "4. Actualizar Novedad",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tipo\": \"DESCUENTO\",\n  \"monto\": 20\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/novedades/colocar_id_aqui",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"novedades",
+								"colocar_id_aqui"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "5. Eliminar Novedad",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/novedades/colocar_id_aqui",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"novedades",
+								"colocar_id_aqui"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "6. Error 400 - PATCH sin reenviar tipo",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"monto\": 20\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/novedades/colocar_id_aqui",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"novedades",
+								"colocar_id_aqui"
+							]
+						},
+						"description": "Reproduce el 400: monto se rechaza porque tipo no viene en el body y el DTO no conoce el estado actual en BD. Solución: reenviar 'tipo' junto con 'monto'."
+					},
+					"response": []
+				},
+				{
+					"name": "7. Error 409 - Nómina no está ABIERTA",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"empleadoId\": 1,\n  \"nominaId\": 1,\n  \"tipo\": \"PERMISO_SIN_GOCE\",\n  \"fecha\": \"2026-07-16\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/novedades",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"novedades"
+							]
+						},
+						"description": "Requiere haber cerrado antes la nómina indicada (PATCH /nomina/:id/cerrar). Reproduce el 409: Art. 53.I CT prohíbe modificar unilateralmente lo que el trabajador ya tiene derecho a recibir una vez cerrado el período."
+					},
+					"response": []
+				}
+			]
 		},
 		{
 			"name": "Nómina",
