@@ -8,6 +8,7 @@ import { HistorialSalario } from '../empleados/entities/historial-salario.entity
 import { Novedad } from '../novedades/entities/novedad.entity';
 import { TipoNovedad } from '../novedades/enums/tipo-novedad.enum';
 import { SubtipoHoraExtra } from '../novedades/enums/subtipo-hora-extra.enum';
+import { SubtipoNominaEspecial } from './enums/subtipo-nomina-especial.enum';
 import { ClasificacionDeduccionesService } from '../deducciones/clasificacion-deducciones.service';
 import { ConfiguracionVigenteService } from '../deducciones/configuracion-vigente.service';
 import { IsssAfpCalculoService } from '../deducciones/isss-afp-calculo.service';
@@ -317,6 +318,122 @@ export class NominaCalculoService {
         isr,
         totalDeducciones,
         liquidoAPagar,
+      });
+
+      detalles.push(await this.detalleNominaRepository.save(detalle));
+    }
+
+    return detalles;
+  }
+
+  // periodo para tipo ESPECIAL: 'AAAA-MM-DD', la fecha de pago (ver
+  // CreateNominaDto). No es un rango como REGULAR porque Quincena 25 y
+  // Aguinaldo son un pago puntual, no un ciclo quincenal.
+  obtenerFechaPagoEspecial(periodo: string): Date {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(periodo);
+    if (!match) {
+      throw new Error(
+        `Formato de período inválido para nómina ESPECIAL: "${periodo}" (se espera AAAA-MM-DD).`,
+      );
+    }
+    const anio = Number(match[1]);
+    const mes = Number(match[2]);
+    const dia = Number(match[3]);
+    return new Date(anio, mes - 1, dia);
+  }
+
+  // Días de aguinaldo según antigüedad (Art. 196-198 CT): 15/19/21 días
+  // para 1-3/3-10/10+ años de servicio. Antes del año, proporcional al
+  // tiempo trabajado sobre la tasa del primer tramo (Art. 197).
+  private diasAguinaldo(fechaIngreso: Date, fechaPago: Date): number {
+    const ingreso = new Date(fechaIngreso);
+    const antiguedadAnios =
+      (fechaPago.getTime() - ingreso.getTime()) / (365.25 * 86400000);
+
+    if (antiguedadAnios < 1) {
+      const diasTrabajados = Math.max(
+        0,
+        Math.round((fechaPago.getTime() - ingreso.getTime()) / 86400000),
+      );
+      return (Math.min(diasTrabajados, 365) / 365) * 15;
+    }
+    if (antiguedadAnios < 3) return 15;
+    if (antiguedadAnios < 10) return 19;
+    return 21;
+  }
+
+  // Calcula y persiste el desglose de una nómina ESPECIAL (Quincena 25 o
+  // Aguinaldo). A diferencia de REGULAR, no consulta novedades: ambos son
+  // pagos puntuales calculados solo a partir de salario y antigüedad, no
+  // del período operativo (ver README de nómina, decisión sobre nóminas
+  // especiales). Ambos están exentos de ISSS/AFP; Aguinaldo sí tributa ISR
+  // sobre el exceso de $1,500 (reforma 2025), Quincena 25 está
+  // completamente exenta de ISR (Ley Especial, D.L. 499/2026).
+  async calcularNominaEspecial(nomina: Nomina): Promise<DetalleNomina[]> {
+    const fechaPago = this.obtenerFechaPagoEspecial(nomina.periodo);
+    const esQuincena25 =
+      nomina.subtipoEspecial === SubtipoNominaEspecial.QUINCENA_25;
+
+    await this.detalleNominaRepository.delete({ nominaId: nomina.id });
+
+    let empleados = await this.empleadoRepository.find({
+      where: { fechaIngreso: LessThanOrEqual(fechaPago) },
+    });
+
+    if (esQuincena25) {
+      // Ley Especial Quincena 25: exclusiva para salario <= $1,500/mes.
+      empleados = empleados.filter((e) => Number(e.salarioBase) <= 1500);
+    }
+
+    if (empleados.length === 0) {
+      return [];
+    }
+
+    const tramosIsr = esQuincena25
+      ? []
+      : await this.configuracionVigenteService.obtenerTramosIsrVigentes(
+          fechaPago,
+        );
+
+    const detalles: DetalleNomina[] = [];
+
+    for (const empleado of empleados) {
+      const salario = Number(empleado.salarioBase);
+
+      const monto = esQuincena25
+        ? redondearComercial(salario * 0.5)
+        : redondearComercial(
+            this.diasAguinaldo(empleado.fechaIngreso, fechaPago) *
+              (salario / 30),
+          );
+
+      // Exento de ISR hasta $1,500 (reforma 2025 al tratamiento del
+      // aguinaldo); Quincena 25 no tributa ISR bajo ningún monto.
+      const baseIsrGravable = esQuincena25
+        ? 0
+        : redondearComercial(Math.max(0, monto - 1500));
+      const isr = esQuincena25
+        ? 0
+        : this.isrCalculoService.calcular(baseIsrGravable, tramosIsr);
+
+      const detalle = this.detalleNominaRepository.create({
+        nominaId: nomina.id,
+        empleadoId: empleado.id,
+        salarioBase: monto,
+        montoHorasExtra: 0,
+        montoBonificaciones: 0,
+        montoDescuentos: 0,
+        totalDevengado: monto,
+        baseIsss: 0,
+        baseAfp: 0,
+        baseIsrGravable,
+        issssTrabajador: 0,
+        issssPatronal: 0,
+        afpTrabajador: 0,
+        afpPatronal: 0,
+        isr,
+        totalDeducciones: isr,
+        liquidoAPagar: redondearComercial(monto - isr),
       });
 
       detalles.push(await this.detalleNominaRepository.save(detalle));

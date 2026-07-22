@@ -29,6 +29,7 @@ describe('NominaService', () => {
 
   const mockNominaCalculoService = {
     calcularPeriodoRegular: jest.fn(),
+    calcularNominaEspecial: jest.fn(),
   };
 
   const nominaAbierta: Nomina = {
@@ -176,7 +177,7 @@ describe('NominaService', () => {
       expect(result.estado).toBe(EstadoNomina.CERRADA);
     });
 
-    it('should not invoke the calculo engine for tipo ESPECIAL', async () => {
+    it('should run the calculo especial engine (not the regular one) for tipo ESPECIAL', async () => {
       const nominaEspecial = {
         ...nominaAbierta,
         id: 4,
@@ -187,9 +188,13 @@ describe('NominaService', () => {
       nominaRepository.save.mockImplementation((data: any) =>
         Promise.resolve(data),
       );
+      nominaCalculoService.calcularNominaEspecial.mockResolvedValue([]);
 
       const result = await service.cerrar(4);
 
+      expect(nominaCalculoService.calcularNominaEspecial).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 4 }),
+      );
       expect(
         nominaCalculoService.calcularPeriodoRegular,
       ).not.toHaveBeenCalled();

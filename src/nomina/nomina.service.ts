@@ -26,42 +26,68 @@ export class NominaService {
     private readonly detalleNominaRepository: Repository<DetalleNomina>,
 
     private readonly nominaCalculoService: NominaCalculoService,
+
     private readonly nominaEspecialCalculoService: NominaEspecialCalculoService,
   ) {}
 
-  async create(createNominaDto: CreateNominaDto): Promise<Nomina> {
-    const tipo = createNominaDto.tipo ?? TipoNomina.REGULAR;
+  async create(
+    createNominaDto: CreateNominaDto,
+  ): Promise<Nomina> {
+    const tipo =
+      createNominaDto.tipo ??
+      TipoNomina.REGULAR;
 
-    this.validarConfiguracion(tipo, createNominaDto);
-
-    const nomina = this.nominaRepository.create({
-      periodo: createNominaDto.periodo,
+    this.validarConfiguracion(
       tipo,
-      subtipoEspecial:
-        tipo === TipoNomina.ESPECIAL
-          ? createNominaDto.subtipoEspecial!
-          : null,
-      motivoVacaciones:
-        createNominaDto.subtipoEspecial ===
-        SubtipoNominaEspecial.VACACIONES
-          ? createNominaDto.motivoVacaciones ??
-            MotivoVacaciones.PERIODO_NORMAL
-          : null,
-      estado: EstadoNomina.ABIERTA,
-      fechaAprobacion: null,
-    });
+      createNominaDto,
+    );
 
-    return this.nominaRepository.save(nomina);
+    const nomina =
+      this.nominaRepository.create({
+        periodo:
+          createNominaDto.periodo,
+
+        tipo,
+
+        subtipoEspecial:
+          tipo === TipoNomina.ESPECIAL
+            ? createNominaDto
+                .subtipoEspecial!
+            : null,
+
+        motivoVacaciones:
+          createNominaDto
+              .subtipoEspecial ===
+            SubtipoNominaEspecial.VACACIONES
+            ? createNominaDto
+                .motivoVacaciones ??
+              MotivoVacaciones.PERIODO_NORMAL
+            : null,
+
+        estado:
+          EstadoNomina.ABIERTA,
+
+        fechaAprobacion: null,
+      });
+
+    return this.nominaRepository.save(
+      nomina,
+    );
   }
 
   private validarConfiguracion(
     tipo: TipoNomina,
     dto: CreateNominaDto,
   ): void {
-    if (tipo === TipoNomina.REGULAR) {
-      if (dto.subtipoEspecial || dto.motivoVacaciones) {
+    if (
+      tipo === TipoNomina.REGULAR
+    ) {
+      if (
+        dto.subtipoEspecial ||
+        dto.motivoVacaciones
+      ) {
         throw new BadRequestException(
-          'Una nómina REGULAR no puede contener subtipoEspecial ni motivoVacaciones',
+          'Una nómina REGULAR no puede contener subtipoEspecial ni motivoVacaciones.',
         );
       }
 
@@ -75,7 +101,8 @@ export class NominaService {
     }
 
     if (
-      dto.subtipoEspecial !== SubtipoNominaEspecial.VACACIONES &&
+      dto.subtipoEspecial !==
+        SubtipoNominaEspecial.VACACIONES &&
       dto.motivoVacaciones
     ) {
       throw new BadRequestException(
@@ -89,18 +116,24 @@ export class NominaService {
     tipo?: TipoNomina;
     periodo?: string;
   }): Promise<Nomina[]> {
-    const where: Record<string, unknown> = {};
+    const where: Record<
+      string,
+      unknown
+    > = {};
 
     if (filtros?.estado) {
-      where.estado = filtros.estado;
+      where.estado =
+        filtros.estado;
     }
 
     if (filtros?.tipo) {
-      where.tipo = filtros.tipo;
+      where.tipo =
+        filtros.tipo;
     }
 
     if (filtros?.periodo) {
-      where.periodo = filtros.periodo;
+      where.periodo =
+        filtros.periodo;
     }
 
     return this.nominaRepository.find({
@@ -111,10 +144,13 @@ export class NominaService {
     });
   }
 
-  async findOne(id: number): Promise<Nomina> {
-    const nomina = await this.nominaRepository.findOneBy({
-      id,
-    });
+  async findOne(
+    id: number,
+  ): Promise<Nomina> {
+    const nomina =
+      await this.nominaRepository.findOneBy({
+        id,
+      });
 
     if (!nomina) {
       throw new NotFoundException(
@@ -125,26 +161,45 @@ export class NominaService {
     return nomina;
   }
 
-  async cerrar(id: number): Promise<Nomina> {
-    const nomina = await this.findOne(id);
+  // REGULAR utiliza el motor ordinario.
+  // VACACIONES utiliza el servicio de prestaciones de Persona 5.
+  // AGUINALDO y QUINCENA_25 utilizan el motor especial de Persona 4.
+  async cerrar(
+    id: number,
+  ): Promise<Nomina> {
+    const nomina =
+      await this.findOne(id);
 
-    if (nomina.estado !== EstadoNomina.ABIERTA) {
+    if (
+      nomina.estado !==
+      EstadoNomina.ABIERTA
+    ) {
       throw new ConflictException(
         `No se puede cerrar la nómina "${nomina.periodo}": está en estado ${nomina.estado}, no ABIERTA.`,
       );
     }
 
-    if (nomina.tipo === TipoNomina.REGULAR) {
-      await this.nominaCalculoService.calcularPeriodoRegular(
-        nomina,
-      );
+    if (
+      nomina.tipo ===
+      TipoNomina.REGULAR
+    ) {
+      await this.nominaCalculoService
+        .calcularPeriodoRegular(
+          nomina,
+        );
     } else if (
       nomina.subtipoEspecial ===
       SubtipoNominaEspecial.VACACIONES
     ) {
-      await this.nominaEspecialCalculoService.calcularNominaEspecial(
-        nomina,
-      );
+      await this.nominaEspecialCalculoService
+        .calcularNominaEspecial(
+          nomina,
+        );
+    } else {
+      await this.nominaCalculoService
+        .calcularNominaEspecial(
+          nomina,
+        );
     }
 
     const cantidadDetalles =
@@ -154,18 +209,25 @@ export class NominaService {
         },
       });
 
-    if (cantidadDetalles === 0) {
+    if (
+      cantidadDetalles === 0
+    ) {
       throw new ConflictException(
         'La nómina no puede cerrarse porque no generó ningún DetalleNomina.',
       );
     }
 
-    nomina.estado = EstadoNomina.CERRADA;
+    nomina.estado =
+      EstadoNomina.CERRADA;
 
-    return this.nominaRepository.save(nomina);
+    return this.nominaRepository.save(
+      nomina,
+    );
   }
 
-  async obtenerDetalle(id: number): Promise<DetalleNomina[]> {
+  async obtenerDetalle(
+    id: number,
+  ): Promise<DetalleNomina[]> {
     await this.findOne(id);
 
     return this.detalleNominaRepository.find({
@@ -181,16 +243,25 @@ export class NominaService {
     });
   }
 
-  async reabrir(id: number): Promise<Nomina> {
-    const nomina = await this.findOne(id);
+  async reabrir(
+    id: number,
+  ): Promise<Nomina> {
+    const nomina =
+      await this.findOne(id);
 
-    if (nomina.estado === EstadoNomina.APROBADA) {
+    if (
+      nomina.estado ===
+      EstadoNomina.APROBADA
+    ) {
       throw new ConflictException(
         `No se puede reabrir la nómina "${nomina.periodo}": ya está APROBADA.`,
       );
     }
 
-    if (nomina.estado !== EstadoNomina.CERRADA) {
+    if (
+      nomina.estado !==
+      EstadoNomina.CERRADA
+    ) {
       throw new ConflictException(
         `No se puede reabrir la nómina "${nomina.periodo}": está en estado ${nomina.estado}, no CERRADA.`,
       );
@@ -200,21 +271,33 @@ export class NominaService {
       nominaId: nomina.id,
     });
 
-    nomina.estado = EstadoNomina.ABIERTA;
+    nomina.estado =
+      EstadoNomina.ABIERTA;
 
-    return this.nominaRepository.save(nomina);
+    return this.nominaRepository.save(
+      nomina,
+    );
   }
 
-  async aprobar(id: number): Promise<Nomina> {
-    const nomina = await this.findOne(id);
+  async aprobar(
+    id: number,
+  ): Promise<Nomina> {
+    const nomina =
+      await this.findOne(id);
 
-    if (nomina.estado === EstadoNomina.APROBADA) {
+    if (
+      nomina.estado ===
+      EstadoNomina.APROBADA
+    ) {
       throw new ConflictException(
         `La nómina "${nomina.periodo}" ya está APROBADA.`,
       );
     }
 
-    if (nomina.estado !== EstadoNomina.CERRADA) {
+    if (
+      nomina.estado !==
+      EstadoNomina.CERRADA
+    ) {
       throw new ConflictException(
         `No se puede aprobar la nómina "${nomina.periodo}": debe estar CERRADA primero.`,
       );
@@ -227,22 +310,35 @@ export class NominaService {
         },
       });
 
-    if (cantidadDetalles === 0) {
+    if (
+      cantidadDetalles === 0
+    ) {
       throw new ConflictException(
         'No se puede aprobar una nómina sin detalles de pago.',
       );
     }
 
-    nomina.estado = EstadoNomina.APROBADA;
-    nomina.fechaAprobacion = new Date();
+    nomina.estado =
+      EstadoNomina.APROBADA;
 
-    return this.nominaRepository.save(nomina);
+    nomina.fechaAprobacion =
+      new Date();
+
+    return this.nominaRepository.save(
+      nomina,
+    );
   }
 
-  async remove(id: number): Promise<void> {
-    const nomina = await this.findOne(id);
+  async remove(
+    id: number,
+  ): Promise<void> {
+    const nomina =
+      await this.findOne(id);
 
-    if (nomina.estado !== EstadoNomina.ABIERTA) {
+    if (
+      nomina.estado !==
+      EstadoNomina.ABIERTA
+    ) {
       throw new ConflictException(
         `No se puede eliminar la nómina "${nomina.periodo}": está en estado ${nomina.estado}, no ABIERTA.`,
       );
@@ -252,6 +348,8 @@ export class NominaService {
       nominaId: id,
     });
 
-    await this.nominaRepository.delete(id);
+    await this.nominaRepository.delete(
+      id,
+    );
   }
 }

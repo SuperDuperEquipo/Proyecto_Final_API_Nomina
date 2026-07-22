@@ -7,6 +7,7 @@ import { ConfiguracionVigenteService } from './configuracion-vigente.service';
 import { ConfiguracionAdminService } from './configuracion-admin.service';
 import { IsssAfpCalculoService } from './isss-afp-calculo.service';
 import { IsrCalculoService } from './isr-calculo.service';
+import { SimulacionDeduccionesService } from './simulacion-deducciones.service';
 import { DeduccionesController } from './deducciones.controller';
 
 @Module({
@@ -18,6 +19,7 @@ import { DeduccionesController } from './deducciones.controller';
     ConfiguracionAdminService,
     IsssAfpCalculoService,
     IsrCalculoService,
+    SimulacionDeduccionesService,
   ],
   exports: [
     TypeOrmModule,

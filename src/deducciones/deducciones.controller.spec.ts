@@ -1,16 +1,22 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DeduccionesController } from './deducciones.controller';
 import { ConfiguracionAdminService } from './configuracion-admin.service';
+import { SimulacionDeduccionesService } from './simulacion-deducciones.service';
 
 describe('DeduccionesController', () => {
   let controller: DeduccionesController;
   let service: any;
+  let simulacionService: any;
 
   const mockConfiguracionAdminService = {
     crearConfiguracionDeduccion: jest.fn(),
     listarConfiguracionDeduccion: jest.fn(),
     crearTramosIsr: jest.fn(),
     listarTramosIsr: jest.fn(),
+  };
+
+  const mockSimulacionService = {
+    simular: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -21,11 +27,16 @@ describe('DeduccionesController', () => {
           provide: ConfiguracionAdminService,
           useValue: mockConfiguracionAdminService,
         },
+        {
+          provide: SimulacionDeduccionesService,
+          useValue: mockSimulacionService,
+        },
       ],
     }).compile();
 
     controller = module.get<DeduccionesController>(DeduccionesController);
     service = module.get<ConfiguracionAdminService>(ConfiguracionAdminService);
+    simulacionService = module.get<SimulacionDeduccionesService>(SimulacionDeduccionesService);
 
     jest.clearAllMocks();
   });
@@ -67,5 +78,13 @@ describe('DeduccionesController', () => {
     controller.listarTramosIsr();
 
     expect(service.listarTramosIsr).toHaveBeenCalled();
+  });
+
+  it('simular invoca al servicio de simulación con el dto', () => {
+    const dto = { salarioBase: 850, fecha: '2026-07-22' };
+
+    controller.simular(dto as any);
+
+    expect(simulacionService.simular).toHaveBeenCalledWith(dto);
   });
 });
