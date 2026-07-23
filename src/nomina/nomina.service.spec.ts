@@ -45,6 +45,7 @@ describe('NominaService', () => {
     periodo: '2026-07-Q2',
     tipo: TipoNomina.REGULAR,
     subtipoEspecial: null,
+    motivoVacaciones: null,
     estado: EstadoNomina.ABIERTA,
     fechaAprobacion: null,
   };
