@@ -11,40 +11,13 @@
 			"description": "Endpoints para el registro de empleados e inicio de sesión.",
 			"item": [
 				{
-					"name": "Registrar Empleado",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Susana Beltrán\",\n  \"tipoDocumento\": \"DUI\",\n  \"documentoIdentidad\": \"01234567-8\",\n  \"email\": \"susana@nomina.com\",\n  \"password\": \"password123\",\n  \"salarioBase\": 1200.0,\n  \"cargo\": \"Desarrollador Backend\",\n  \"area\": \"Tecnología\",\n  \"fechaIngreso\": \"2026-07-15\",\n  \"afp\": \"AFP Crecer\",\n  \"rol\": \"ADMIN\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/register",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"auth",
-								"register"
-							]
-						}
-					},
-					"response": []
-				},
-				{
 					"name": "Iniciar Sesión",
 					"request": {
 						"method": "POST",
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"documentoIdentidad\": \"01234567-8\",\n  \"password\": \"password123\"\n}",
+							"raw": "{\n  \"documentoIdentidad\": \"00000000-0\",\n  \"password\": \"adminPassword123\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -71,9 +44,11 @@
 								"exec": [
 									"if (pm.response.code === 200) {",
 									"    const json = pm.response.json();",
-									"    if (json.data && json.data.access_token) {",
-									"        pm.collectionVariables.set('token', json.data.access_token);",
-									"        console.log('Token guardado en la variable de coleccion.');",
+									"    if (json && json.access_token) {",
+									"        pm.collectionVariables.set('token', json.access_token);",
+									"        pm.globals.set('token', json.access_token);",
+									"        try { pm.environment.set('token', json.access_token); } catch(e) {}",
+									"        console.log('Token guardado en todas las variables (Colección, Globales y Entorno).');",
 									"    }",
 									"}"
 								]
@@ -104,7 +79,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Juan Pérez\",\n  \"dui\": \"00000001-2\",\n  \"email\": \"juan.perez@nomina.com\",\n  \"password\": \"juanito123\",\n  \"salarioBase\": 850.00,\n  \"cargo\": \"Auxiliar Contable\",\n  \"area\": \"Finanzas\",\n  \"fechaIngreso\": \"2026-07-15\",\n  \"afp\": \"AFP Confía\",\n  \"rol\": \"EMPLEADO\"\n}",
+							"raw": "{\n  \"nombre\": \"Juan Pérez\",\n  \"tipoDocumento\": \"DUI\",\n  \"documentoIdentidad\": \"00000001-2\",\n  \"email\": \"juan.perez@nomina.com\",\n  \"password\": \"juanito123\",\n  \"salarioBase\": 850.00,\n  \"sectorEconomico\": \"COMERCIO_SERVICIOS_INDUSTRIA\",\n  \"cargo\": \"Auxiliar Contable\",\n  \"area\": \"Finanzas\",\n  \"fechaIngreso\": \"2026-07-15\",\n  \"afp\": \"AFP Confía\",\n  \"isss\": \"12345678-9\",\n  \"rol\": \"EMPLEADO\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"

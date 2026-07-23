@@ -3,7 +3,7 @@ import { AuthService } from './auth.service';
 import { EmpleadosService } from '../empleados/empleados.service';
 import { JwtService } from '@nestjs/jwt';
 import { EmpleadoRole } from '../empleados/entities/empleado.entity';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
 jest.mock('bcryptjs', () => ({
@@ -51,82 +51,6 @@ describe('AuthService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
-  });
-
-  describe('register', () => {
-    it('should force rol ADMIN when registering the first employee', async () => {
-      const dto: any = {
-        nombre: 'Administrador del Sistema',
-        tipoDocumento: 'DUI',
-        documentoIdentidad: '00000000-0',
-        email: 'admin@nomina.com',
-        password: 'adminPassword123',
-        salarioBase: 2000,
-        cargo: 'Administrador',
-        area: 'Sistemas',
-        fechaIngreso: new Date().toISOString().split('T')[0],
-        afp: 'AFP Crecer',
-        rol: EmpleadoRole.EMPLEADO,
-      };
-
-      empleadosService.findAll.mockResolvedValue([]);
-      empleadosService.create.mockImplementation((data) =>
-        Promise.resolve({ id: 1, ...data }),
-      );
-
-      const result = await service.register(dto);
-
-      expect(empleadosService.findAll).toHaveBeenCalledTimes(1);
-      expect(dto.rol).toBe(EmpleadoRole.ADMIN);
-      expect(empleadosService.create).toHaveBeenCalledWith(dto);
-      expect(result.id).toBe(1);
-    });
-
-    it('should keep the provided rol when there are already employees registered', async () => {
-      const dto: any = {
-        nombre: 'Juan Pérez',
-        tipoDocumento: 'DUI',
-        documentoIdentidad: '00000001-2',
-        email: 'juan@nomina.com',
-        password: 'password123',
-        salarioBase: 850,
-        cargo: 'Auxiliar',
-        area: 'Finanzas',
-        fechaIngreso: '2026-07-15',
-        afp: 'AFP Confía',
-        rol: EmpleadoRole.EMPLEADO,
-      };
-
-      empleadosService.findAll.mockResolvedValue([{ id: 1, nombre: 'Admin' }]);
-      empleadosService.create.mockImplementation((data) =>
-        Promise.resolve({ id: 2, ...data }),
-      );
-
-      const result = await service.register(dto);
-
-      expect(empleadosService.findAll).toHaveBeenCalledTimes(1);
-      expect(dto.rol).toBe(EmpleadoRole.EMPLEADO);
-      expect(empleadosService.create).toHaveBeenCalledWith(dto);
-      expect(result.id).toBe(2);
-    });
-
-    it('should throw ConflictException if password is not provided', async () => {
-      const dto: any = {
-        nombre: 'Juan Pérez',
-        tipoDocumento: 'DUI',
-        documentoIdentidad: '00000001-2',
-        email: 'juan@nomina.com',
-        salarioBase: 850,
-        cargo: 'Auxiliar',
-        area: 'Finanzas',
-        fechaIngreso: '2026-07-15',
-        afp: 'AFP Confía',
-      };
-
-      empleadosService.findAll.mockResolvedValue([]);
-
-      await expect(service.register(dto)).rejects.toThrow(ConflictException);
-    });
   });
 
   describe('login', () => {
