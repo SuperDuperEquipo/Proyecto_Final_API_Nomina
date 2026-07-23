@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { NominaService } from './nomina.service';
 import { NominaCalculoService } from './nomina-calculo.service';
+import { NominaEspecialCalculoService } from './nomina-especial-calculo.service';
 import { Nomina } from './entities/nomina.entity';
 import { DetalleNomina } from './entities/detalle-nomina.entity';
 import { EstadoNomina } from './enums/estado-nomina.enum';
@@ -21,14 +22,21 @@ describe('NominaService', () => {
     find: jest.fn(),
     findOneBy: jest.fn(),
     delete: jest.fn(),
+    count: jest.fn(),
   };
 
   const mockDetalleNominaRepository = {
     find: jest.fn(),
+    count: jest.fn(),
+    delete: jest.fn(),
   };
 
   const mockNominaCalculoService = {
     calcularPeriodoRegular: jest.fn(),
+    calcularNominaEspecial: jest.fn(),
+  };
+
+  const mockNominaEspecialCalculoService = {
     calcularNominaEspecial: jest.fn(),
   };
 
@@ -37,6 +45,7 @@ describe('NominaService', () => {
     periodo: '2026-07-Q2',
     tipo: TipoNomina.REGULAR,
     subtipoEspecial: null,
+    motivoVacaciones: null,
     estado: EstadoNomina.ABIERTA,
     fechaAprobacion: null,
   };
@@ -64,6 +73,7 @@ describe('NominaService', () => {
           useValue: mockDetalleNominaRepository,
         },
         { provide: NominaCalculoService, useValue: mockNominaCalculoService },
+        { provide: NominaEspecialCalculoService, useValue: mockNominaEspecialCalculoService },
       ],
     }).compile();
 
@@ -223,6 +233,7 @@ describe('NominaService', () => {
       expect(detalleNominaRepository.find).toHaveBeenCalledWith({
         where: { nominaId: 2 },
         order: { empleadoId: 'ASC' },
+        relations: { empleado: true },
       });
       expect(result).toBe(detalles);
     });
