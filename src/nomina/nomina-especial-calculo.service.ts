@@ -1,6 +1,7 @@
 import {
   Injectable,
   ConflictException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
@@ -30,6 +31,9 @@ interface ResultadoVacaciones {
 
 @Injectable()
 export class NominaEspecialCalculoService {
+  private readonly milisegundosPorDia =
+    24 * 60 * 60 * 1000;
+
   constructor(
     @InjectRepository(DetalleNomina)
     private readonly detalleNominaRepository: Repository<DetalleNomina>,
@@ -41,14 +45,18 @@ export class NominaEspecialCalculoService {
     private readonly novedadRepository: Repository<Novedad>,
 
     private readonly configuracionVigenteService: ConfiguracionVigenteService,
+
     private readonly issssAfpCalculoService: IsssAfpCalculoService,
+
     private readonly isrCalculoService: IsrCalculoService,
   ) {}
 
   async calcularNominaEspecial(
     nomina: Nomina,
   ): Promise<DetalleNomina[]> {
-    if (nomina.tipo !== TipoNomina.ESPECIAL) {
+    if (
+      nomina.tipo !== TipoNomina.ESPECIAL
+    ) {
       throw new ConflictException(
         'El cálculo de vacaciones solo puede ejecutarse sobre una nómina ESPECIAL.',
       );
@@ -63,11 +71,118 @@ export class NominaEspecialCalculoService {
       );
     }
 
+    /*
+     * Si la nómina había sido calculada previamente y luego fue
+     * reabierta, se eliminan únicamente sus detalles actuales.
+     *
+     * Los detalles pertenecientes a otras nóminas permanecen y
+     * se utilizan para verificar pagos anteriores.
+     */
     await this.detalleNominaRepository.delete({
       nominaId: nomina.id,
     });
 
-    return this.calcularVacaciones(nomina);
+    return this.calcularVacaciones(
+      nomina,
+    );
+  }
+
+  /**
+   * Construye una fecha calendario en UTC.
+   *
+   * El uso de UTC evita que una fecha como 2024-03-10
+   * pueda interpretarse localmente como 2024-03-09.
+   */
+  private crearFechaCalendario(
+    anio: number,
+    mes: number,
+    dia: number,
+  ): Date {
+    return new Date(
+      Date.UTC(
+        anio,
+        mes - 1,
+        dia,
+      ),
+    );
+  }
+
+  private esFechaCalendarioValida(
+    anio: number,
+    mes: number,
+    dia: number,
+  ): boolean {
+    const fecha =
+      this.crearFechaCalendario(
+        anio,
+        mes,
+        dia,
+      );
+
+    return (
+      fecha.getUTCFullYear() === anio &&
+      fecha.getUTCMonth() ===
+        mes - 1 &&
+      fecha.getUTCDate() === dia
+    );
+  }
+
+  /**
+   * Convierte una fecha proveniente de TypeORM a una fecha
+   * calendario UTC sin conservar horas ni zona horaria.
+   */
+  private convertirFechaCalendario(
+    valor: Date | string,
+  ): Date {
+    if (typeof valor === 'string') {
+      const match =
+        /^(\d{4})-(\d{2})-(\d{2})/.exec(
+          valor,
+        );
+
+      if (!match) {
+        throw new ConflictException(
+          `Fecha laboral inválida: "${valor}". Se espera el formato AAAA-MM-DD.`,
+        );
+      }
+
+      const anio = Number(match[1]);
+      const mes = Number(match[2]);
+      const dia = Number(match[3]);
+
+      if (
+        !this.esFechaCalendarioValida(
+          anio,
+          mes,
+          dia,
+        )
+      ) {
+        throw new ConflictException(
+          `La fecha laboral "${valor}" no es una fecha calendario válida.`,
+        );
+      }
+
+      return this.crearFechaCalendario(
+        anio,
+        mes,
+        dia,
+      );
+    }
+
+    if (
+      !(valor instanceof Date) ||
+      Number.isNaN(valor.getTime())
+    ) {
+      throw new ConflictException(
+        'La fecha laboral recibida no es válida.',
+      );
+    }
+
+    return this.crearFechaCalendario(
+      valor.getUTCFullYear(),
+      valor.getUTCMonth() + 1,
+      valor.getUTCDate(),
+    );
   }
 
   private obtenerFechaPagoEspecial(
@@ -88,28 +203,147 @@ export class NominaEspecialCalculoService {
     const mes = Number(match[2]);
     const dia = Number(match[3]);
 
-    const fecha = new Date(
-      anio,
-      mes - 1,
-      dia,
-    );
-
     if (
-      fecha.getFullYear() !== anio ||
-      fecha.getMonth() !== mes - 1 ||
-      fecha.getDate() !== dia
+      !this.esFechaCalendarioValida(
+        anio,
+        mes,
+        dia,
+      )
     ) {
       throw new ConflictException(
         `La fecha de pago "${periodo}" no es una fecha calendario válida.`,
       );
     }
 
-    return fecha;
+    return this.crearFechaCalendario(
+      anio,
+      mes,
+      dia,
+    );
+  }
+
+  /**
+   * Extrae el año de una nómina especial cuyo período
+   * se encuentra en formato AAAA-MM-DD.
+   */
+  private obtenerAnioPeriodoEspecial(
+    periodo: string,
+  ): number {
+    return this.obtenerFechaPagoEspecial(
+      periodo,
+    ).getUTCFullYear();
+  }
+
+  private obtenerUltimoDiaMes(
+    anio: number,
+    mes: number,
+  ): number {
+    return new Date(
+      Date.UTC(
+        anio,
+        mes,
+        0,
+      ),
+    ).getUTCDate();
+  }
+
+  /**
+   * Suma años conservando el aniversario laboral.
+   *
+   * Si la fecha de ingreso es el 29 de febrero y el año
+   * de destino no es bisiesto, se utiliza el 28 de febrero.
+   */
+  private sumarAnios(
+    fecha: Date,
+    cantidadAnios: number,
+  ): Date {
+    const anioDestino =
+      fecha.getUTCFullYear() +
+      cantidadAnios;
+
+    const mes =
+      fecha.getUTCMonth() + 1;
+
+    const diaOriginal =
+      fecha.getUTCDate();
+
+    const ultimoDiaMes =
+      this.obtenerUltimoDiaMes(
+        anioDestino,
+        mes,
+      );
+
+    const diaAjustado = Math.min(
+      diaOriginal,
+      ultimoDiaMes,
+    );
+
+    return this.crearFechaCalendario(
+      anioDestino,
+      mes,
+      diaAjustado,
+    );
   }
 
   private async obtenerEmpleados(
+    nomina: Nomina,
     fechaCorte: Date,
   ): Promise<Empleado[]> {
+    const motivo =
+      nomina.motivoVacaciones ??
+      MotivoVacaciones.PERIODO_NORMAL;
+
+    /*
+     * Por terminación solo se procesa al empleado indicado
+     * específicamente en la nómina.
+     */
+    if (
+      motivo ===
+      MotivoVacaciones.TERMINACION_CONTRATO
+    ) {
+      if (
+        !nomina.empleadoTerminacionId
+      ) {
+        throw new ConflictException(
+          'La nómina de vacaciones por terminación no tiene un empleadoTerminacionId.',
+        );
+      }
+
+      const empleado =
+        await this.empleadoRepository.findOneBy({
+          id: nomina.empleadoTerminacionId,
+        });
+
+      if (!empleado) {
+        throw new NotFoundException(
+          `Empleado con ID "${nomina.empleadoTerminacionId}" no encontrado.`,
+        );
+      }
+
+      const fechaIngreso =
+        this.convertirFechaCalendario(
+          empleado.fechaIngreso as
+            | Date
+            | string,
+        );
+
+      if (
+        fechaIngreso.getTime() >
+        fechaCorte.getTime()
+      ) {
+        throw new ConflictException(
+          `El empleado "${empleado.nombre}" no puede recibir vacaciones en ${nomina.periodo} porque su fecha de ingreso es posterior a la fecha de pago.`,
+        );
+      }
+
+      return [empleado];
+    }
+
+    /*
+     * Para período normal y vacaciones colectivas se evalúa
+     * automáticamente a todos los empleados existentes en la
+     * fecha de corte.
+     */
     return this.empleadoRepository.find({
       where: {
         fechaIngreso:
@@ -121,63 +355,52 @@ export class NominaEspecialCalculoService {
     });
   }
 
-  /**
-   * Construye una fecha sumando años a la fecha de ingreso.
-   *
-   * Ejemplo:
-   * fechaIngreso = 2024-03-10
-   * cantidadAnios = 2
-   * resultado = 2026-03-10
-   */
-  private sumarAnios(
-    fecha: Date,
-    cantidadAnios: number,
-  ): Date {
-    return new Date(
-      fecha.getFullYear() +
-        cantidadAnios,
-      fecha.getMonth(),
-      fecha.getDate(),
-    );
-  }
-
   private calcularAniosServicio(
     fechaIngreso: Date,
     fechaCorte: Date,
   ): number {
     let anios =
-      fechaCorte.getFullYear() -
-      fechaIngreso.getFullYear();
+      fechaCorte.getUTCFullYear() -
+      fechaIngreso.getUTCFullYear();
 
-    const aniversarioActual =
+    const aniversario =
       this.sumarAnios(
         fechaIngreso,
         anios,
       );
 
     if (
-      fechaCorte <
-      aniversarioActual
+      fechaCorte.getTime() <
+      aniversario.getTime()
     ) {
       anios -= 1;
     }
 
-    return Math.max(anios, 0);
+    return Math.max(
+      anios,
+      0,
+    );
   }
 
   private calcularDiasEntre(
     fechaInicio: Date,
     fechaFin: Date,
   ): number {
-    if (fechaInicio > fechaFin) {
+    if (
+      fechaInicio.getTime() >
+      fechaFin.getTime()
+    ) {
       return 0;
     }
 
+    const diferencia =
+      fechaFin.getTime() -
+      fechaInicio.getTime();
+
     return (
       Math.floor(
-        (fechaFin.getTime() -
-          fechaInicio.getTime()) /
-          86_400_000,
+        diferencia /
+          this.milisegundosPorDia,
       ) + 1
     );
   }
@@ -214,18 +437,17 @@ export class NominaEspecialCalculoService {
   }
 
   /**
-   * Obtiene el último ciclo de vacaciones normales
-   * que ya fue pagado al empleado.
-   *
-   * Si nunca ha recibido vacaciones normales,
-   * devuelve 0.
+   * Devuelve el último ciclo normal de vacaciones
+   * pagado al empleado.
    */
   private async obtenerUltimoCicloPagado(
     empleadoId: number,
   ): Promise<number> {
     const resultado =
       await this.detalleNominaRepository
-        .createQueryBuilder('detalle')
+        .createQueryBuilder(
+          'detalle',
+        )
         .innerJoin(
           'detalle.nomina',
           'nomina',
@@ -243,7 +465,8 @@ export class NominaEspecialCalculoService {
         .andWhere(
           'nomina.tipo = :tipo',
           {
-            tipo: TipoNomina.ESPECIAL,
+            tipo:
+              TipoNomina.ESPECIAL,
           },
         )
         .andWhere(
@@ -283,7 +506,8 @@ export class NominaEspecialCalculoService {
   }
 
   /**
-   * Verifica si un ciclo laboral específico ya fue pagado.
+   * Verifica que un ciclo normal específico no haya
+   * sido pagado previamente.
    */
   private async cicloVacacionesYaPagado(
     empleadoId: number,
@@ -291,7 +515,9 @@ export class NominaEspecialCalculoService {
   ): Promise<boolean> {
     const cantidad =
       await this.detalleNominaRepository
-        .createQueryBuilder('detalle')
+        .createQueryBuilder(
+          'detalle',
+        )
         .innerJoin(
           'detalle.nomina',
           'nomina',
@@ -305,7 +531,8 @@ export class NominaEspecialCalculoService {
         .andWhere(
           'nomina.tipo = :tipo',
           {
-            tipo: TipoNomina.ESPECIAL,
+            tipo:
+              TipoNomina.ESPECIAL,
           },
         )
         .andWhere(
@@ -334,26 +561,131 @@ export class NominaEspecialCalculoService {
   }
 
   /**
-   * Calcula las vacaciones correspondientes al siguiente
-   * ciclo laboral pendiente del empleado.
+   * Control de repetición de vacaciones colectivas.
    *
-   * Para vacaciones normales:
+   * Un empleado no puede recibir dos pagos colectivos
+   * dentro del mismo año calendario.
    *
-   * - El ciclo 1 se habilita en fechaIngreso + 1 año.
-   * - El ciclo 2 se habilita en fechaIngreso + 2 años.
-   * - El ciclo 3 se habilita en fechaIngreso + 3 años.
+   * Ejemplo:
+   * - Pago colectivo: 2026-08-15
+   * - Nuevo intento: 2026-12-10
    *
-   * Cuando el siguiente aniversario todavía no ha llegado,
-   * devuelve null y el empleado se omite.
+   * Ambos pertenecen al año 2026, por lo que el segundo
+   * pago se considera duplicado.
    */
+  private async yaRecibioVacacionesColectivasEnAnio(
+    empleadoId: number,
+    anio: number,
+  ): Promise<boolean> {
+    const patronPeriodo =
+      `${anio}-%`;
+
+    const cantidad =
+      await this.detalleNominaRepository
+        .createQueryBuilder(
+          'detalle',
+        )
+        .innerJoin(
+          'detalle.nomina',
+          'nomina',
+        )
+        .where(
+          'detalle.empleadoId = :empleadoId',
+          {
+            empleadoId,
+          },
+        )
+        .andWhere(
+          'nomina.tipo = :tipo',
+          {
+            tipo:
+              TipoNomina.ESPECIAL,
+          },
+        )
+        .andWhere(
+          'nomina.subtipoEspecial = :subtipo',
+          {
+            subtipo:
+              SubtipoNominaEspecial.VACACIONES,
+          },
+        )
+        .andWhere(
+          'nomina.motivoVacaciones = :motivo',
+          {
+            motivo:
+              MotivoVacaciones.VACACION_COLECTIVA,
+          },
+        )
+        .andWhere(
+          'nomina.periodo LIKE :patronPeriodo',
+          {
+            patronPeriodo,
+          },
+        )
+        .getCount();
+
+    return cantidad > 0;
+  }
+
+  /**
+   * Una terminación laboral solo puede generar un pago
+   * de vacaciones por empleado.
+   */
+  private async yaRecibioVacacionesPorTerminacion(
+    empleadoId: number,
+  ): Promise<boolean> {
+    const cantidad =
+      await this.detalleNominaRepository
+        .createQueryBuilder(
+          'detalle',
+        )
+        .innerJoin(
+          'detalle.nomina',
+          'nomina',
+        )
+        .where(
+          'detalle.empleadoId = :empleadoId',
+          {
+            empleadoId,
+          },
+        )
+        .andWhere(
+          'nomina.tipo = :tipo',
+          {
+            tipo:
+              TipoNomina.ESPECIAL,
+          },
+        )
+        .andWhere(
+          'nomina.subtipoEspecial = :subtipo',
+          {
+            subtipo:
+              SubtipoNominaEspecial.VACACIONES,
+          },
+        )
+        .andWhere(
+          'nomina.motivoVacaciones = :motivo',
+          {
+            motivo:
+              MotivoVacaciones.TERMINACION_CONTRATO,
+          },
+        )
+        .getCount();
+
+    return cantidad > 0;
+  }
+
   private async calcularMontoVacaciones(
     nomina: Nomina,
     empleado: Empleado,
     fechaCorte: Date,
   ): Promise<ResultadoVacaciones | null> {
-    const fechaIngreso = new Date(
-      empleado.fechaIngreso,
-    );
+    const fechaIngreso =
+      this.convertirFechaCalendario(
+        empleado.fechaIngreso as
+          | Date
+          | string,
+      );
 
     const motivo =
       nomina.motivoVacaciones ??
@@ -365,6 +697,12 @@ export class NominaEspecialCalculoService {
       | number
       | null = null;
 
+    /*
+     * VACACIONES NORMALES
+     *
+     * Se paga el siguiente ciclo laboral que todavía
+     * no haya sido pagado y que ya se encuentre completo.
+     */
     if (
       motivo ===
       MotivoVacaciones.PERIODO_NORMAL
@@ -389,19 +727,9 @@ export class NominaEspecialCalculoService {
           siguienteCiclo,
         );
 
-      /*
-       * El ciclo todavía no se ha completado.
-       *
-       * Ejemplo:
-       * fechaIngreso: 10/03/2024
-       * siguiente ciclo: 2
-       * fecha habilitada: 10/03/2026
-       *
-       * Antes del 10/03/2026 no puede procesarse el Año 2.
-       */
       if (
-        fechaCorte <
-        fechaFinCiclo
+        fechaCorte.getTime() <
+        fechaFinCiclo.getTime()
       ) {
         return null;
       }
@@ -434,10 +762,35 @@ export class NominaEspecialCalculoService {
         siguienteCiclo;
     }
 
+    /*
+     * VACACIONES COLECTIVAS
+     *
+     * Se impide que el empleado reciba más de un pago
+     * colectivo dentro del mismo año calendario.
+     */
     if (
       motivo ===
       MotivoVacaciones.VACACION_COLECTIVA
     ) {
+      const anioPago =
+        this.obtenerAnioPeriodoEspecial(
+          nomina.periodo,
+        );
+
+      const yaRecibioEnAnio =
+        await this.yaRecibioVacacionesColectivasEnAnio(
+          empleado.id,
+          anioPago,
+        );
+
+      /*
+       * Se omite al empleado duplicado sin cancelar el
+       * cálculo colectivo para el resto del personal.
+       */
+      if (yaRecibioEnAnio) {
+        return null;
+      }
+
       const aniosServicio =
         this.calcularAniosServicio(
           fechaIngreso,
@@ -459,13 +812,16 @@ export class NominaEspecialCalculoService {
           fechaCorte,
         );
 
-      if (aniosServicio >= 1) {
+      if (
+        aniosServicio >= 1
+      ) {
         diasPagados = 15;
       } else {
         diasPagados =
           15 *
           Math.min(
-            diasTrabajadosCiclo / 365,
+            diasTrabajadosCiclo /
+              365,
             1,
           );
 
@@ -473,10 +829,27 @@ export class NominaEspecialCalculoService {
       }
     }
 
+    /*
+     * TERMINACIÓN DE CONTRATO
+     *
+     * Solo se procesa al empleado seleccionado en la nómina
+     * y se impide un segundo pago por terminación.
+     */
     if (
       motivo ===
       MotivoVacaciones.TERMINACION_CONTRATO
     ) {
+      const yaRecibio =
+        await this.yaRecibioVacacionesPorTerminacion(
+          empleado.id,
+        );
+
+      if (yaRecibio) {
+        throw new ConflictException(
+          `El empleado "${empleado.nombre}" ya recibió un pago de vacaciones por terminación de contrato.`,
+        );
+      }
+
       const aniosServicio =
         this.calcularAniosServicio(
           fechaIngreso,
@@ -501,7 +874,8 @@ export class NominaEspecialCalculoService {
       diasPagados =
         15 *
         Math.min(
-          diasTrabajadosCiclo / 365,
+          diasTrabajadosCiclo /
+            365,
           1,
         );
 
@@ -513,8 +887,9 @@ export class NominaEspecialCalculoService {
     }
 
     const salarioDiario =
-      Number(empleado.salarioBase) /
-      30;
+      Number(
+        empleado.salarioBase,
+      ) / 30;
 
     const montoBruto =
       redondearComercial(
@@ -525,11 +900,14 @@ export class NominaEspecialCalculoService {
 
     return {
       montoBruto,
+
       diasPagados:
         redondearComercial(
           diasPagados,
         ),
+
       esProporcional,
+
       cicloVacaciones,
     };
   }
@@ -544,6 +922,7 @@ export class NominaEspecialCalculoService {
 
     const empleados =
       await this.obtenerEmpleados(
+        nomina,
         fechaCorte,
       );
 
@@ -561,7 +940,9 @@ export class NominaEspecialCalculoService {
 
     const detalles: DetalleNomina[] = [];
 
-    for (const empleado of empleados) {
+    for (
+      const empleado of empleados
+    ) {
       const resultadoVacaciones =
         await this.calcularMontoVacaciones(
           nomina,
@@ -570,12 +951,15 @@ export class NominaEspecialCalculoService {
         );
 
       /*
-       * El empleado no tiene un ciclo disponible,
-       * no cumple los requisitos o ya recibió
-       * el ciclo correspondiente.
+       * El empleado se omite cuando:
+       *
+       * - No tiene un ciclo normal disponible.
+       * - No cumple los requisitos.
+       * - Ya recibió vacaciones colectivas ese año.
        */
       if (
-        resultadoVacaciones === null
+        resultadoVacaciones ===
+        null
       ) {
         continue;
       }
@@ -626,7 +1010,8 @@ export class NominaEspecialCalculoService {
       const detalle =
         this.detalleNominaRepository.create({
           nominaId: nomina.id,
-          empleadoId: empleado.id,
+          empleadoId:
+            empleado.id,
 
           salarioBase: 0,
           montoHorasExtra: 0,

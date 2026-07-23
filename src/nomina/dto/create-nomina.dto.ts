@@ -2,6 +2,8 @@ import {
   IsNotEmpty,
   IsEnum,
   IsOptional,
+  IsInt,
+  Min,
   registerDecorator,
   ValidationArguments,
   ValidationOptions,
@@ -49,12 +51,6 @@ function fechaEnVentana(
   return fecha >= inicio && fecha <= fin;
 }
 
-// REGULAR utiliza períodos quincenales AAAA-MM-Q1/Q2.
-// ESPECIAL utiliza una fecha exacta de pago AAAA-MM-DD.
-//
-// QUINCENA_25 tiene una ventana del 15 al 25 de enero.
-// AGUINALDO tiene una ventana del 20 de octubre al 20 de diciembre.
-// VACACIONES puede procesarse en cualquier fecha calendario válida.
 function FormatoPeriodoSegunTipo(
   validationOptions?: ValidationOptions,
 ) {
@@ -138,8 +134,6 @@ function FormatoPeriodoSegunTipo(
               );
             }
 
-            // VACACIONES solamente requiere
-            // una fecha calendario válida.
             return true;
           }
 
@@ -287,8 +281,7 @@ export class CreateNominaDto {
         value as SubtipoNominaEspecial,
       ),
   )
-  subtipoEspecial?:
-    SubtipoNominaEspecial;
+  subtipoEspecial?: SubtipoNominaEspecial;
 
   @ApiProperty({
     enum: MotivoVacaciones,
@@ -301,4 +294,15 @@ export class CreateNominaDto {
   @IsOptional()
   @IsEnum(MotivoVacaciones)
   motivoVacaciones?: MotivoVacaciones;
+
+  @ApiProperty({
+    example: 5,
+    required: false,
+    description:
+      'Empleado cuya relación laboral terminó. Es obligatorio únicamente para vacaciones por TERMINACION_CONTRATO.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  empleadoTerminacionId?: number;
 }

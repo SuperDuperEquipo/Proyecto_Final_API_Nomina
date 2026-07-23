@@ -42,6 +42,17 @@ export class NominaService {
       createNominaDto,
     );
 
+    const esVacaciones =
+      tipo === TipoNomina.ESPECIAL &&
+      createNominaDto.subtipoEspecial ===
+        SubtipoNominaEspecial.VACACIONES;
+
+    const motivoVacaciones =
+      esVacaciones
+        ? createNominaDto.motivoVacaciones ??
+          MotivoVacaciones.PERIODO_NORMAL
+        : null;
+
     const nomina =
       this.nominaRepository.create({
         periodo:
@@ -55,13 +66,13 @@ export class NominaService {
                 .subtipoEspecial!
             : null,
 
-        motivoVacaciones:
-          createNominaDto
-              .subtipoEspecial ===
-            SubtipoNominaEspecial.VACACIONES
+        motivoVacaciones,
+
+        empleadoTerminacionId:
+          motivoVacaciones ===
+          MotivoVacaciones.TERMINACION_CONTRATO
             ? createNominaDto
-                .motivoVacaciones ??
-              MotivoVacaciones.PERIODO_NORMAL
+                .empleadoTerminacionId!
             : null,
 
         estado:
@@ -84,10 +95,11 @@ export class NominaService {
     ) {
       if (
         dto.subtipoEspecial ||
-        dto.motivoVacaciones
+        dto.motivoVacaciones ||
+        dto.empleadoTerminacionId
       ) {
         throw new BadRequestException(
-          'Una nómina REGULAR no puede contener subtipoEspecial ni motivoVacaciones.',
+          'Una nómina REGULAR no puede contener subtipoEspecial, motivoVacaciones ni empleadoTerminacionId.',
         );
       }
 
@@ -100,13 +112,61 @@ export class NominaService {
       );
     }
 
+    const esVacaciones =
+      dto.subtipoEspecial ===
+      SubtipoNominaEspecial.VACACIONES;
+
     if (
-      dto.subtipoEspecial !==
-        SubtipoNominaEspecial.VACACIONES &&
+      !esVacaciones &&
       dto.motivoVacaciones
     ) {
       throw new BadRequestException(
         'motivoVacaciones solamente aplica a una nómina especial de VACACIONES.',
+      );
+    }
+
+    if (
+      !esVacaciones &&
+      dto.empleadoTerminacionId
+    ) {
+      throw new BadRequestException(
+        'empleadoTerminacionId solamente aplica a una nómina especial de VACACIONES por TERMINACION_CONTRATO.',
+      );
+    }
+
+    if (!esVacaciones) {
+      return;
+    }
+
+    const motivo =
+      dto.motivoVacaciones ??
+      MotivoVacaciones.PERIODO_NORMAL;
+
+    if (
+      motivo ===
+      MotivoVacaciones.TERMINACION_CONTRATO
+    ) {
+      if (
+        dto.empleadoTerminacionId ===
+          undefined ||
+        dto.empleadoTerminacionId ===
+          null
+      ) {
+        throw new BadRequestException(
+          'empleadoTerminacionId es obligatorio cuando el motivo de vacaciones es TERMINACION_CONTRATO.',
+        );
+      }
+
+      return;
+    }
+
+    if (
+      dto.empleadoTerminacionId !==
+        undefined &&
+      dto.empleadoTerminacionId !== null
+    ) {
+      throw new BadRequestException(
+        'empleadoTerminacionId solo debe enviarse cuando motivoVacaciones es TERMINACION_CONTRATO.',
       );
     }
   }
@@ -161,9 +221,6 @@ export class NominaService {
     return nomina;
   }
 
-  // REGULAR utiliza el motor ordinario.
-  // VACACIONES utiliza el servicio de prestaciones de Persona 5.
-  // AGUINALDO y QUINCENA_25 utilizan el motor especial de Persona 4.
   async cerrar(
     id: number,
   ): Promise<Nomina> {

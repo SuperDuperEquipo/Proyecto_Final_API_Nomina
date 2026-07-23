@@ -31,18 +31,28 @@ export class Nomina {
     enum: SubtipoNominaEspecial,
     nullable: true,
   })
-  subtipoEspecial!:
-    | SubtipoNominaEspecial
-    | null;
+  subtipoEspecial!: SubtipoNominaEspecial | null;
 
   @Column({
     type: 'enum',
     enum: MotivoVacaciones,
     nullable: true,
   })
-  motivoVacaciones!:
-    | MotivoVacaciones
-    | null;
+  motivoVacaciones!: MotivoVacaciones | null;
+
+  /**
+   * Empleado cuya relación laboral terminó.
+   *
+   * Solamente se utiliza cuando:
+   * tipo = ESPECIAL
+   * subtipoEspecial = VACACIONES
+   * motivoVacaciones = TERMINACION_CONTRATO
+   */
+  @Column({
+    type: 'integer',
+    nullable: true,
+  })
+  empleadoTerminacionId!: number | null;
 
   @Column({
     type: 'enum',
