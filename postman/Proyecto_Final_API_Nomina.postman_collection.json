@@ -3148,21 +3148,32 @@
 											"const d = pm.response.json().data;",
 											"",
 											"pm.test('Es un comprobante de salario', function () {",
-											"    pm.expect(d.tipo).to.eql('SALARIO');",
+											"    pm.expect(d.tipoComprobante).to.eql('SALARIO');",
 											"});",
 											"",
-											"pm.test('Incluye información del empleado y período', function () {",
+											"pm.test('Incluye información del empleado y del período', function () {",
 											"    pm.expect(d.empleado).to.exist;",
-											"    pm.expect(d.periodo).to.exist;",
+											"    pm.expect(d.empleado.id).to.exist;",
+											"    pm.expect(d.empleado.nombre).to.exist;",
+											"    pm.expect(d.nomina).to.exist;",
+											"    pm.expect(d.nomina.periodo).to.exist;",
 											"});",
 											"",
 											"pm.test('Incluye ingresos, deducciones y líquido', function () {",
 											"    pm.expect(d.ingresos).to.exist;",
 											"    pm.expect(d.deducciones).to.exist;",
 											"    pm.expect(Number(d.liquidoAPagar)).to.be.at.least(0);",
+											"});",
+											"",
+											"pm.test('El líquido coincide con ingresos menos deducciones', function () {",
+											"    const totalIngresos = Number(d.ingresos.totalIngresos);",
+											"    const totalDeducciones = Number(d.deducciones.totalDeducciones);",
+											"    const esperado = totalIngresos - totalDeducciones;",
+											"    pm.expect(Math.abs(Number(d.liquidoAPagar) - esperado)).to.be.below(0.02);",
 											"});"
 										]
 									}
+									
 								}
 							]
 						},
@@ -3210,7 +3221,18 @@
 											"const d = pm.response.json().data;",
 											"",
 											"pm.test('Es un comprobante de aguinaldo', function () {",
-											"    pm.expect(d.tipo).to.eql('AGUINALDO');",
+											"    pm.expect(d.tipoComprobante).to.eql('AGUINALDO');",
+											"});",
+											"",
+											"pm.test('Incluye empleado y período de la nómina', function () {",
+											"    pm.expect(d.empleado).to.exist;",
+											"    pm.expect(d.nomina).to.exist;",
+											"    pm.expect(d.nomina.periodo).to.exist;",
+											"});",
+											"",
+											"pm.test('Incluye información de la prestación', function () {",
+											"    pm.expect(d.prestacion).to.exist;",
+											"    pm.expect(Number(d.prestacion.monto)).to.be.above(0);",
 											"});",
 											"",
 											"pm.test('Incluye el líquido a pagar', function () {",
@@ -3220,6 +3242,8 @@
 									}
 								}
 							]
+							
+							
 				},
 				{
 					"name": "1.3 Comprobante de VACACIONES",
@@ -3265,11 +3289,23 @@
 									"const d = pm.response.json().data;",
 									"",
 									"pm.test('Es un comprobante de vacaciones', function () {",
-									"    pm.expect(d.tipo).to.eql('VACACIONES');",
+									"    pm.expect(d.tipoComprobante).to.eql('VACACIONES');",
 									"});",
 									"",
-									"pm.test('El pago de terminación es proporcional', function () {",
-									"    pm.expect(d.prestacionProporcional).to.be.true;",
+									"pm.test('Incluye empleado y período de la nómina', function () {",
+									"    pm.expect(d.empleado).to.exist;",
+									"    pm.expect(d.nomina).to.exist;",
+									"    pm.expect(d.nomina.periodo).to.exist;",
+									"});",
+									"",
+									"pm.test('Incluye información de la prestación', function () {",
+									"    pm.expect(d.prestacion).to.exist;",
+									"    pm.expect(Number(d.prestacion.monto)).to.be.above(0);",
+									"    pm.expect(Number(d.prestacion.dias)).to.be.above(0);",
+									"});",
+									"",
+									"pm.test('El pago por terminación es proporcional', function () {",
+									"    pm.expect(d.prestacion.esProporcional).to.be.true;",
 									"});",
 									"",
 									"pm.test('Incluye el líquido a pagar', function () {",
@@ -3279,6 +3315,7 @@
 							}
 						}
 					]
+										
 				}
 			]
 		},
@@ -3482,13 +3519,21 @@
 									"});",
 									"",
 									"const reporte = pm.response.json().data;",
+									"const comparativo = reporte.comparativoPorArea;",
 									"",
-									"pm.test('Devuelve un arreglo agrupado por área', function () {",
-									"    pm.expect(reporte).to.be.an('array');",
+									"pm.test('Incluye la información de ambos períodos', function () {",
+									"    pm.expect(reporte.periodoActual).to.exist;",
+									"    pm.expect(reporte.periodoAnterior).to.exist;",
+									"    pm.expect(reporte.periodoActual.periodo).to.eql('2026-08-Q1');",
+									"    pm.expect(reporte.periodoAnterior.periodo).to.eql('2026-07-Q2');",
 									"});",
 									"",
-									"pm.test('Cada registro contiene ambos períodos y sus variaciones', function () {",
-									"    reporte.forEach(function (r) {",
+									"pm.test('Devuelve un arreglo agrupado por área', function () {",
+									"    pm.expect(comparativo).to.be.an('array');",
+									"});",
+									"",
+									"pm.test('Cada registro contiene el área, ambos períodos y sus variaciones', function () {",
+									"    comparativo.forEach(function (r) {",
 									"        pm.expect(r.area).to.exist;",
 									"        pm.expect(r.periodoActual).to.exist;",
 									"        pm.expect(r.periodoAnterior).to.exist;",
@@ -3497,15 +3542,32 @@
 									"});",
 									"",
 									"pm.test('Los totales del período actual son numéricos', function () {",
-									"    reporte.forEach(function (r) {",
+									"    comparativo.forEach(function (r) {",
 									"        pm.expect(Number(r.periodoActual.totalDevengado)).to.be.at.least(0);",
 									"        pm.expect(Number(r.periodoActual.totalDeducciones)).to.be.at.least(0);",
 									"        pm.expect(Number(r.periodoActual.liquidoAPagar)).to.be.at.least(0);",
+									"    });",
+									"});",
+									"",
+									"pm.test('Los totales del período anterior son numéricos', function () {",
+									"    comparativo.forEach(function (r) {",
+									"        pm.expect(Number(r.periodoAnterior.totalDevengado)).to.be.at.least(0);",
+									"        pm.expect(Number(r.periodoAnterior.totalDeducciones)).to.be.at.least(0);",
+									"        pm.expect(Number(r.periodoAnterior.liquidoAPagar)).to.be.at.least(0);",
+									"    });",
+									"});",
+									"",
+									"pm.test('Las variaciones contienen valores numéricos', function () {",
+									"    comparativo.forEach(function (r) {",
+									"        pm.expect(Number(r.variaciones.totalDevengado.absoluta)).to.be.a('number');",
+									"        pm.expect(Number(r.variaciones.totalDeducciones.absoluta)).to.be.a('number');",
+									"        pm.expect(Number(r.variaciones.liquidoAPagar.absoluta)).to.be.a('number');",
 									"    });",
 									"});"
 								]
 							}
 						}
+
 					]
 				},
 				{
