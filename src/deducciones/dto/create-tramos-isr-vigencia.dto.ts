@@ -62,6 +62,12 @@ export class CreateTramosIsrVigenciaDto {
   @ApiProperty({
     type: [TramoIsrItemDto],
     description: 'Exactamente 4 tramos, numerados 1 a 4.',
+    example: [
+      { numeroTramo: 1, limiteInferior: 0.01, limiteSuperior: 550.0, porcentaje: 0, cuotaFija: 0 },
+      { numeroTramo: 2, limiteInferior: 550.01, limiteSuperior: 895.24, porcentaje: 10, cuotaFija: 17.67 },
+      { numeroTramo: 3, limiteInferior: 895.25, limiteSuperior: 2038.1, porcentaje: 20, cuotaFija: 60.0 },
+      { numeroTramo: 4, limiteInferior: 2038.11, limiteSuperior: null, porcentaje: 30, cuotaFija: 288.57 },
+    ],
   })
   @ValidateNested({ each: true })
   @Type(() => TramoIsrItemDto)
