@@ -2057,7 +2057,7 @@
 							]
 						},
 						{
-							"name": "2.7 Crear nómina ESPECIAL - VACACIONES",
+							"name": "2.7 Crear nómina ESPECIAL - VACACIONES por terminación",
 							"request": {
 								"auth": {
 									"type": "bearer",
@@ -2073,7 +2073,7 @@
 								"header": [],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n  \"periodo\": \"2026-09-20\",\n  \"tipo\": \"ESPECIAL\",\n  \"subtipoEspecial\": \"VACACIONES\",\n  \"motivoVacaciones\": \"TERMINACION_CONTRATO\"\n}",
+									"raw": "{\n  \"periodo\": \"2026-09-20\",\n  \"tipo\": \"ESPECIAL\",\n  \"subtipoEspecial\": \"VACACIONES\",\n  \"motivoVacaciones\": \"TERMINACION_CONTRATO\",\n  \"empleadoTerminacionId\": {{empleado_antiguo_id}}\n}",
 									"options": {
 										"raw": {
 											"language": "json"
@@ -2089,7 +2089,7 @@
 										"nomina"
 									]
 								},
-								"description": "Se usa TERMINACION_CONTRATO porque siempre paga proporcional. Con PERIODO_NORMAL el cálculo exige que TODOS los empleados tengan 1 año y 200 días trabajados, y falla con 409 si alguno no califica (limitación conocida del motor de P5)."
+								"description": "Calcula únicamente las vacaciones proporcionales del empleado indicado en empleadoTerminacionId. Los empleados no elegibles ya no detienen el cálculo completo."
 							},
 							"response": [],
 							"event": [
@@ -2104,9 +2104,17 @@
 											"",
 											"const d = pm.response.json().data;",
 											"",
-											"pm.test('Conserva el motivo de vacaciones', function () {",
+											"pm.test('Es una nómina especial de vacaciones', function () {",
+											"    pm.expect(d.tipo).to.eql('ESPECIAL');",
 											"    pm.expect(d.subtipoEspecial).to.eql('VACACIONES');",
+											"});",
+											"",
+											"pm.test('Conserva el motivo TERMINACION_CONTRATO', function () {",
 											"    pm.expect(d.motivoVacaciones).to.eql('TERMINACION_CONTRATO');",
+											"});",
+											"",
+											"pm.test('Conserva el empleado seleccionado para terminación', function () {",
+											"    pm.expect(Number(d.empleadoTerminacionId)).to.eql(Number(pm.collectionVariables.get('empleado_antiguo_id')));",
 											"});",
 											"",
 											"pm.collectionVariables.set('nomina_vacaciones_id', d.id);"
@@ -2214,6 +2222,194 @@
 											"});",
 											"",
 											"pm.test('El monto incluye el recargo del 30% (Art. 177 CT)', function () {",
+											"    detalles.forEach(function (d) {",
+											"        const salarioDiario = Number(d.empleado.salarioBase) / 30;",
+											"        const esperado = salarioDiario * Number(d.diasPrestacion) * 1.3;",
+											"        pm.expect(Math.abs(Number(d.montoPrestacion) - esperado)).to.be.below(TOL);",
+											"    });",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "2.10 Crear VACACIONES - PERIODO_NORMAL",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-10-01\",\n  \"tipo\": \"ESPECIAL\",\n  \"subtipoEspecial\": \"VACACIONES\",\n  \"motivoVacaciones\": \"PERIODO_NORMAL\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								},
+								"description": "Crea una nómina de vacaciones normales. Durante el cálculo, el sistema selecciona automáticamente a los empleados que ya alcanzaron el siguiente ciclo laboral y cumplen el mínimo de días trabajados."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('201 Created', function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"",
+											"const d = pm.response.json().data;",
+											"",
+											"pm.test('Es una nómina de vacaciones normales', function () {",
+											"    pm.expect(d.tipo).to.eql('ESPECIAL');",
+											"    pm.expect(d.subtipoEspecial).to.eql('VACACIONES');",
+											"    pm.expect(d.motivoVacaciones).to.eql('PERIODO_NORMAL');",
+											"});",
+											"",
+											"pm.test('No requiere empleadoTerminacionId', function () {",
+											"    pm.expect(d.empleadoTerminacionId).to.be.null;",
+											"});",
+											"",
+											"pm.collectionVariables.set('nomina_vacaciones_normal_id', d.id);"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "2.11 Cerrar VACACIONES - PERIODO_NORMAL",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_vacaciones_normal_id}}/cerrar",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_vacaciones_normal_id}}",
+										"cerrar"
+									]
+								},
+								"description": "Calcula automáticamente las vacaciones normales de los empleados elegibles. Los empleados que todavía no cumplen los requisitos se omiten sin detener toda la nómina."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test('La nómina pasa a estado CERRADA', function () {",
+											"    pm.expect(pm.response.json().data.estado).to.eql('CERRADA');",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "2.12 Detalle VACACIONES - PERIODO_NORMAL",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_vacaciones_normal_id}}/detalle",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_vacaciones_normal_id}}",
+										"detalle"
+									]
+								},
+								"description": "Comprueba que las vacaciones normales registren la prestación, los días pagados y el ciclo laboral correspondiente."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"const detalles = pm.response.json().data;",
+											"const TOL = 0.02;",
+											"",
+											"pm.test('Devuelve un arreglo de detalles', function () {",
+											"    pm.expect(detalles).to.be.an('array');",
+											"});",
+											"",
+											"pm.test('Las vacaciones se registran como prestación', function () {",
+											"    detalles.forEach(function (d) {",
+											"        pm.expect(Number(d.montoPrestacion)).to.be.above(0);",
+											"        pm.expect(Number(d.salarioBase)).to.eql(0);",
+											"    });",
+											"});",
+											"",
+											"pm.test('El pago normal no se marca como proporcional', function () {",
+											"    detalles.forEach(function (d) {",
+											"        pm.expect(d.prestacionProporcional).to.be.false;",
+											"    });",
+											"});",
+											"",
+											"pm.test('Cada pago registra el ciclo de vacaciones', function () {",
+											"    detalles.forEach(function (d) {",
+											"        pm.expect(Number(d.cicloVacaciones)).to.be.above(0);",
+											"    });",
+											"});",
+											"",
+											"pm.test('El monto incluye el recargo del 30%', function () {",
 											"    detalles.forEach(function (d) {",
 											"        const salarioDiario = Number(d.empleado.salarioBase) / 30;",
 											"        const esperado = salarioDiario * Number(d.diasPrestacion) * 1.3;",
@@ -2903,9 +3099,471 @@
 		},
 		{
 			"name": "Comprobantes",
-			"description": "Módulo asignado a Persona 5 (Recibos e informes).",
-			"item": []
+			"description": "Módulo asignado a Persona 5. Genera comprobantes individuales de salario, aguinaldo y vacaciones a partir del DetalleNomina persistido, y reportes comparativos por área. Debe ejecutarse después de la carpeta Nómina.",
+			"item": [
+				{
+					"name": "1. Comprobantes individuales",
+					"item": [
+						{
+							"name": "1.1 Comprobante de SALARIO",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/comprobantes/nomina/{{nomina_regular_id}}/empleado/{{empleado_antiguo_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"comprobantes",
+										"nomina",
+										"{{nomina_regular_id}}",
+										"empleado",
+										"{{empleado_antiguo_id}}"
+									]
+								},
+								"description": "Consulta el comprobante individual de salario del empleado en la nómina regular aprobada."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"const d = pm.response.json().data;",
+											"",
+											"pm.test('Es un comprobante de salario', function () {",
+											"    pm.expect(d.tipo).to.eql('SALARIO');",
+											"});",
+											"",
+											"pm.test('Incluye información del empleado y período', function () {",
+											"    pm.expect(d.empleado).to.exist;",
+											"    pm.expect(d.periodo).to.exist;",
+											"});",
+											"",
+											"pm.test('Incluye ingresos, deducciones y líquido', function () {",
+											"    pm.expect(d.ingresos).to.exist;",
+											"    pm.expect(d.deducciones).to.exist;",
+											"    pm.expect(Number(d.liquidoAPagar)).to.be.at.least(0);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "1.2 Comprobante de AGUINALDO",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/comprobantes/nomina/{{nomina_aguinaldo_id}}/empleado/{{empleado_antiguo_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"comprobantes",
+										"nomina",
+										"{{nomina_aguinaldo_id}}",
+										"empleado",
+										"{{empleado_antiguo_id}}"
+									]
+								},
+								"description": "Consulta el comprobante independiente de aguinaldo."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"const d = pm.response.json().data;",
+											"",
+											"pm.test('Es un comprobante de aguinaldo', function () {",
+											"    pm.expect(d.tipo).to.eql('AGUINALDO');",
+											"});",
+											"",
+											"pm.test('Incluye el líquido a pagar', function () {",
+											"    pm.expect(Number(d.liquidoAPagar)).to.be.at.least(0);",
+											"});"
+										]
+									}
+								}
+							]
+				},
+				{
+					"name": "1.3 Comprobante de VACACIONES",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/comprobantes/nomina/{{nomina_vacaciones_id}}/empleado/{{empleado_antiguo_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"comprobantes",
+								"nomina",
+								"{{nomina_vacaciones_id}}",
+								"empleado",
+								"{{empleado_antiguo_id}}"
+							]
+						},
+						"description": "Consulta el comprobante de vacaciones por terminación del empleado seleccionado."
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const d = pm.response.json().data;",
+									"",
+									"pm.test('Es un comprobante de vacaciones', function () {",
+									"    pm.expect(d.tipo).to.eql('VACACIONES');",
+									"});",
+									"",
+									"pm.test('El pago de terminación es proporcional', function () {",
+									"    pm.expect(d.prestacionProporcional).to.be.true;",
+									"});",
+									"",
+									"pm.test('Incluye el líquido a pagar', function () {",
+									"    pm.expect(Number(d.liquidoAPagar)).to.be.at.least(0);",
+									"});"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "2. Listado de comprobantes",
+			"item": [
+				{
+					"name": "2.1 Listar comprobantes de nómina REGULAR",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/comprobantes/nomina/{{nomina_regular_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"comprobantes",
+								"nomina",
+								"{{nomina_regular_id}}"
+							]
+						},
+						"description": "Lista los comprobantes de todos los empleados incluidos en una nómina regular cerrada o aprobada."
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Devuelve una lista', function () {",
+									"    pm.expect(pm.response.json().data).to.be.an('array');",
+									"});"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "3. Reporte comparativo",
+			"item": [
+				{
+					"name": "3.1 Crear segundo período REGULAR",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"periodo\": \"2026-08-Q1\",\n  \"tipo\": \"REGULAR\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/nomina",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"nomina"
+							]
+						},
+						"description": "Crea el segundo período regular necesario para ejecutar el reporte comparativo."
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('201 Created', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.collectionVariables.set('nomina_regular_comparativa_id', pm.response.json().data.id);"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "3.2 Cerrar segundo período REGULAR",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/nomina/{{nomina_regular_comparativa_id}}/cerrar",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"nomina",
+								"{{nomina_regular_comparativa_id}}",
+								"cerrar"
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK y pasa a CERRADA', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().data.estado).to.eql('CERRADA');",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "3.3 Consultar reporte comparativo por área",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/comprobantes/reportes/comparativo?periodoActual=2026-08-Q1&periodoAnterior=2026-07-Q2",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"comprobantes",
+								"reportes",
+								"comparativo"
+							],
+							"query": [
+								{
+									"key": "periodoActual",
+									"value": "2026-08-Q1"
+								},
+								{
+									"key": "periodoAnterior",
+									"value": "2026-07-Q2"
+								}
+							]
+						},
+						"description": "Compara dos nóminas regulares procesadas y agrupa los resultados por área."
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const reporte = pm.response.json().data;",
+									"",
+									"pm.test('Devuelve un arreglo agrupado por área', function () {",
+									"    pm.expect(reporte).to.be.an('array');",
+									"});",
+									"",
+									"pm.test('Cada registro contiene ambos períodos y sus variaciones', function () {",
+									"    reporte.forEach(function (r) {",
+									"        pm.expect(r.area).to.exist;",
+									"        pm.expect(r.periodoActual).to.exist;",
+									"        pm.expect(r.periodoAnterior).to.exist;",
+									"        pm.expect(r.variaciones).to.exist;",
+									"    });",
+									"});",
+									"",
+									"pm.test('Los totales del período actual son numéricos', function () {",
+									"    reporte.forEach(function (r) {",
+									"        pm.expect(Number(r.periodoActual.totalDevengado)).to.be.at.least(0);",
+									"        pm.expect(Number(r.periodoActual.totalDeducciones)).to.be.at.least(0);",
+									"        pm.expect(Number(r.periodoActual.liquidoAPagar)).to.be.at.least(0);",
+									"    });",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "3.4 Error 409 - Comparar el mismo período",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/comprobantes/reportes/comparativo?periodoActual=2026-07-Q2&periodoAnterior=2026-07-Q2",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"comprobantes",
+								"reportes",
+								"comparativo"
+							],
+							"query": [
+								{
+									"key": "periodoActual",
+									"value": "2026-07-Q2"
+								},
+								{
+									"key": "periodoAnterior",
+									"value": "2026-07-Q2"
+								}
+							]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('409: los períodos deben ser diferentes', function () {",
+									"    pm.response.to.have.status(409);",
+									"});"
+								]
+							}
+						}
+					]
+				}
+			]
 		}
+	]
+}
 	],
 	"variable": [
 		{
@@ -2955,6 +3613,16 @@
 		},
 		{
 			"key": "nomina_borrar_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "nomina_vacaciones_normal_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "nomina_regular_comparativa_id",
 			"value": "",
 			"type": "string"
 		}
