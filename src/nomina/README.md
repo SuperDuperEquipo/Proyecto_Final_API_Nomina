@@ -138,6 +138,108 @@ Todos los endpoints están protegidos por `JwtAuthGuard` + `RolesGuard`. Requier
 
 ---
 
+## Extensión del Módulo: Nómina Especial de Vacaciones
+
+Además de las nóminas especiales de Quincena 25 y Aguinaldo, el módulo incorpora el cálculo de **Vacaciones** como una nómina especial. Dependiendo del motivo indicado en la creación de la nómina, el sistema aplica reglas distintas para determinar los empleados beneficiarios y la forma de calcular la prestación.
+
+Los motivos soportados son:
+
+- `PERIODO_NORMAL`
+- `VACACION_COLECTIVA`
+- `TERMINACION_CONTRATO`
+
+---
+
+## Decisiones de Negocio para Vacaciones
+
+### 16. Las vacaciones normales se controlan por ciclo laboral y no por año calendario.
+
+Cada pago de vacaciones almacena en `DetalleNomina` el campo `cicloVacaciones`, que identifica el aniversario laboral que ya fue pagado.
+
+Antes de generar un nuevo pago, el sistema busca el último ciclo registrado para el empleado y únicamente permite calcular el siguiente cuando ya alcanzó el aniversario correspondiente.
+
+Esto evita:
+
+- pagar dos veces el mismo ciclo;
+- adelantar vacaciones antes del aniversario;
+- depender únicamente del año calendario para determinar el derecho.
+
+---
+
+### 17. La selección de empleados es automática.
+
+Durante el cálculo, el sistema determina automáticamente qué empleados deben incluirse según el motivo seleccionado:
+
+- **PERIODO_NORMAL:** empleados que ya adquirieron el derecho correspondiente al siguiente ciclo laboral.
+- **VACACION_COLECTIVA:** todos los empleados existentes en la fecha de corte.
+- **TERMINACION_CONTRATO:** únicamente el empleado indicado mediante `empleadoTerminacionId`.
+
+Con esto se elimina el riesgo de omitir o incluir empleados manualmente.
+
+---
+
+### 18. Los empleados no elegibles no detienen el cálculo de la nómina.
+
+Cuando un empleado no cumple los requisitos para recibir vacaciones, el sistema simplemente lo omite y continúa calculando el resto de empleados.
+
+Se consideran no elegibles, entre otros casos:
+
+- aún no alcanzó el aniversario laboral;
+- no cumple el mínimo de días trabajados;
+- ya recibió el ciclo correspondiente;
+- ya recibió una vacación colectiva durante ese año.
+
+De esta forma un empleado sin derecho no impide generar correctamente la nómina del resto.
+
+---
+
+### 19. Las vacaciones por terminación procesan únicamente un empleado.
+
+Cuando el motivo es `TERMINACION_CONTRATO`, la nómina requiere el campo:
+
+```text
+empleadoTerminacionId
+```
+
+De esta manera únicamente se calcula la prestación proporcional del empleado cuya relación laboral finaliza, evitando procesar innecesariamente al resto de la empresa.
+
+---
+
+### 20. Las vacaciones colectivas solo pueden pagarse una vez por año calendario.
+
+Antes de generar una nómina colectiva, el sistema verifica si el empleado ya recibió otra prestación colectiva durante el mismo año.
+
+Si ya existe un pago registrado, el empleado se omite automáticamente del cálculo para evitar duplicidades.
+
+---
+
+### 21. Los aniversarios se calculan utilizando fechas calendario en UTC.
+
+Los cálculos de antigüedad utilizan fechas construidas mediante `Date.UTC()` y funciones `getUTC...()` para evitar desplazamientos ocasionados por la zona horaria del servidor.
+
+También se contempla correctamente el caso de empleados ingresados un **29 de febrero**, ajustando el aniversario en años no bisiestos.
+
+---
+
+## Casos Borde Considerados para Vacaciones
+
+- Empleado cuyo aniversario laboral aún no se ha alcanzado.
+- Empleado con menos del mínimo de días trabajados requeridos.
+- Ciclo de vacaciones ya pagado anteriormente.
+- Vacaciones colectivas repetidas durante el mismo año calendario.
+- Nómina de terminación sin `empleadoTerminacionId`.
+- Empleado inexistente en una nómina por terminación.
+- Segundo pago de vacaciones por terminación para el mismo empleado.
+- Empleados ingresados el 29 de febrero.
+- Conversión de fechas sin desplazamientos provocados por zonas horarias.
+- Nómina de vacaciones donde ningún empleado resulta elegible.
+
+---
+
+## Limitaciones Conocidas
+
+- Las vacaciones normales y las vacaciones colectivas utilizan controles de repetición independientes. En la implementación actual un empleado podría recibir ambos tipos de pago durante el mismo año si corresponden a motivos distintos. La decisión de si una vacación colectiva sustituye o consume el ciclo normal queda como una posible mejora futura.
+
 ## Pruebas Unitarias
 
 ```bash
