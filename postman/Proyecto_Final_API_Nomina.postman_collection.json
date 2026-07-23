@@ -776,8 +776,2130 @@
 		},
 		{
 			"name": "Nómina",
-			"description": "Módulo asignado a Persona 4 (Planilla y ciclo de vida).",
-			"item": []
+			"description": "Módulo asignado a Persona 4 (Ciclo de vida de la planilla, estados, aprobación y nóminas especiales).\n\nPRECONDICIONES antes de correr esta carpeta:\n1. Haber hecho login como ADMIN (carpeta Autenticación) para poblar {{token}}.\n2. Haber cargado tasas ISSS/AFP y la tabla de ISR (carpeta Deducciones, peticiones 1 y 3). Sin configuración vigente, cerrar una nómina devuelve 422.\n3. Correr la subcarpeta '0. Preparación' una sola vez: crea un empleado antiguo (necesario para Quincena 25, Aguinaldo y Vacaciones) y un usuario RECURSOS_HUMANOS para las pruebas de control de acceso.\n\nDespués se puede correr toda la carpeta en orden con el Collection Runner.",
+			"item": [
+				{
+					"name": "0. Preparación",
+					"description": "Datos base necesarios para las nóminas especiales y para las pruebas de roles. Es idempotente: si los usuarios ya existen, devuelve 409 y la prueba lo acepta.",
+					"item": [
+						{
+							"name": "0.1 Crear empleado antiguo (setup)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"nombre\": \"Empleado Antiguo P4\",\n  \"tipoDocumento\": \"DUI\",\n  \"documentoIdentidad\": \"04000001-1\",\n  \"email\": \"empleado.p4@nomina.com\",\n  \"password\": \"empleadoP4123\",\n  \"sectorEconomico\": \"COMERCIO_SERVICIOS_INDUSTRIA\",\n  \"salarioBase\": 900.00,\n  \"cargo\": \"Operario\",\n  \"area\": \"Operaciones\",\n  \"fechaIngreso\": \"2025-01-10\",\n  \"afp\": \"AFP Crecer\",\n  \"isss\": \"22222222-2\",\n  \"rol\": \"EMPLEADO\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/empleados",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"empleados"
+									]
+								},
+								"description": "Salario 900 (<= $1,500) y fechaIngreso 2025-01-10 para que califique a Quincena 25, tenga antigüedad para Aguinaldo (15 días) y cumpla el ciclo de Vacaciones."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('201 creado o 409 si ya existía', function () {",
+											"    pm.expect([201, 409]).to.include(pm.response.code);",
+											"});",
+											"",
+											"if (pm.response.code === 201) {",
+											"    const d = pm.response.json().data;",
+											"    pm.collectionVariables.set('empleado_antiguo_id', d.id);",
+											"    pm.test('Salario <= 1500 (elegible a Quincena 25)', function () {",
+											"        pm.expect(Number(d.salarioBase)).to.be.at.most(1500);",
+											"    });",
+											"}"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "0.2 Crear usuario RECURSOS_HUMANOS (setup)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"nombre\": \"Encargada de RRHH\",\n  \"tipoDocumento\": \"DUI\",\n  \"documentoIdentidad\": \"04000002-2\",\n  \"email\": \"rrhh.p4@nomina.com\",\n  \"password\": \"rrhhP4123\",\n  \"sectorEconomico\": \"COMERCIO_SERVICIOS_INDUSTRIA\",\n  \"salarioBase\": 1200.00,\n  \"cargo\": \"Analista de RRHH\",\n  \"area\": \"Recursos Humanos\",\n  \"fechaIngreso\": \"2025-01-10\",\n  \"afp\": \"AFP Confía\",\n  \"isss\": \"33333333-3\",\n  \"rol\": \"RECURSOS_HUMANOS\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/empleados",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"empleados"
+									]
+								},
+								"description": "Necesario para demostrar que aprobar una nómina es exclusivo de ADMIN (decisión de equipo del Sector 4: la ley exige trazabilidad, no dicta la jerarquía)."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('201 creado o 409 si ya existía', function () {",
+											"    pm.expect([201, 409]).to.include(pm.response.code);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "0.3 Login como RECURSOS_HUMANOS",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"documentoIdentidad\": \"04000002-2\",\n  \"password\": \"rrhhP4123\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								},
+								"description": "Guarda el token de RRHH en {{token_rrhh}} sin sobrescribir el token de ADMIN."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"const d = pm.response.json().data;",
+											"",
+											"pm.test('El rol devuelto es RECURSOS_HUMANOS', function () {",
+											"    pm.expect(d.user.rol).to.eql('RECURSOS_HUMANOS');",
+											"});",
+											"",
+											"pm.collectionVariables.set('token_rrhh', d.access_token);"
+										]
+									}
+								}
+							]
+						}
+					]
+				},
+				{
+					"name": "1. Ciclo de vida (REGULAR)",
+					"description": "ABIERTA -> CERRADA -> APROBADA, con el único retroceso permitido CERRADA -> ABIERTA. Una vez APROBADA la nómina es inmutable (Art. 53 romano I del Código de Trabajo: reducir retroactivamente lo ya devengado da al trabajador derecho a terminar el contrato con responsabilidad patronal).",
+					"item": [
+						{
+							"name": "1.1 Crear nómina REGULAR",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-07-Q2\",\n  \"tipo\": \"REGULAR\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('201 Created', function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"",
+											"const d = pm.response.json().data;",
+											"",
+											"pm.test('Nace en estado ABIERTA', function () {",
+											"    pm.expect(d.estado).to.eql('ABIERTA');",
+											"});",
+											"",
+											"pm.test('tipo REGULAR', function () {",
+											"    pm.expect(d.tipo).to.eql('REGULAR');",
+											"});",
+											"",
+											"pm.test('Una REGULAR no lleva subtipoEspecial ni motivoVacaciones', function () {",
+											"    pm.expect(d.subtipoEspecial).to.be.null;",
+											"    pm.expect(d.motivoVacaciones).to.be.null;",
+											"});",
+											"",
+											"pm.test('fechaAprobacion aún nula', function () {",
+											"    pm.expect(d.fechaAprobacion).to.be.null;",
+											"});",
+											"",
+											"pm.collectionVariables.set('nomina_regular_id', d.id);"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "1.2 Listar nóminas ABIERTAS",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina?estado=ABIERTA",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									],
+									"query": [
+										{
+											"key": "estado",
+											"value": "ABIERTA"
+										}
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"const lista = pm.response.json().data;",
+											"",
+											"pm.test('Devuelve un arreglo', function () {",
+											"    pm.expect(lista).to.be.an('array');",
+											"});",
+											"",
+											"pm.test('El filtro solo devuelve nóminas ABIERTAS', function () {",
+											"    lista.forEach(function (n) {",
+											"        pm.expect(n.estado).to.eql('ABIERTA');",
+											"    });",
+											"});",
+											"",
+											"pm.test('Incluye la nómina recién creada', function () {",
+											"    const id = Number(pm.collectionVariables.get('nomina_regular_id'));",
+											"    pm.expect(lista.map(function (n) { return n.id; })).to.include(id);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "1.3 Detalle ANTES de cerrar (vacío)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_regular_id}}/detalle",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_regular_id}}",
+										"detalle"
+									]
+								},
+								"description": "El desglose se calcula al cerrar, no al crear: mientras está ABIERTA no hay nada que mostrar."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test('Sin detalle mientras la nómina está ABIERTA', function () {",
+											"    pm.expect(pm.response.json().data).to.be.an('array').that.is.empty;",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "1.4 Error 409 - Aprobar sin cerrar",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_regular_id}}/aprobar",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_regular_id}}",
+										"aprobar"
+									]
+								},
+								"description": "No se puede saltar el estado CERRADA: aprobar es el punto sin retorno y exige que el cálculo ya esté sellado."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('409 Conflict', function () {",
+											"    pm.response.to.have.status(409);",
+											"});",
+											"",
+											"pm.test('El mensaje exige pasar antes por CERRADA', function () {",
+											"    pm.expect(pm.response.text()).to.include('CERRADA');",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "1.5 Cerrar nómina (calcula el desglose)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_regular_id}}/cerrar",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_regular_id}}",
+										"cerrar"
+									]
+								},
+								"description": "Dispara NominaCalculoService.calcularPeriodoRegular: prorratea el salario por tramos, aplica novedades del período y calcula ISSS/AFP/ISR. Si devuelve 422, falta cargar la configuración de deducciones (carpeta Deducciones)."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test('Pasa a estado CERRADA', function () {",
+											"    pm.expect(pm.response.json().data.estado).to.eql('CERRADA');",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "1.6 Detalle DESPUÉS de cerrar (aritmética)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_regular_id}}/detalle",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_regular_id}}",
+										"detalle"
+									]
+								},
+								"description": "Verifica que el desglose cuadre: totalDeducciones = ISSS + AFP + ISR + descuentos, y líquido = devengado - deducciones."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"const detalles = pm.response.json().data;",
+											"const TOL = 0.011;",
+											"",
+											"pm.test('Genera al menos un DetalleNomina', function () {",
+											"    pm.expect(detalles.length).to.be.above(0);",
+											"});",
+											"",
+											"pm.test('totalDeducciones = ISSS + AFP + ISR + descuentos', function () {",
+											"    detalles.forEach(function (d) {",
+											"        const suma = Number(d.issssTrabajador) + Number(d.afpTrabajador) + Number(d.isr) + Number(d.montoDescuentos);",
+											"        pm.expect(Math.abs(suma - Number(d.totalDeducciones))).to.be.below(TOL);",
+											"    });",
+											"});",
+											"",
+											"pm.test('liquidoAPagar = totalDevengado - totalDeducciones', function () {",
+											"    detalles.forEach(function (d) {",
+											"        const esperado = Number(d.totalDevengado) - Number(d.totalDeducciones);",
+											"        pm.expect(Math.abs(esperado - Number(d.liquidoAPagar))).to.be.below(TOL);",
+											"    });",
+											"});",
+											"",
+											"pm.test('totalDevengado = salario + horas extra + bonificaciones', function () {",
+											"    detalles.forEach(function (d) {",
+											"        const suma = Number(d.salarioBase) + Number(d.montoHorasExtra) + Number(d.montoBonificaciones);",
+											"        pm.expect(Math.abs(suma - Number(d.totalDevengado))).to.be.below(TOL);",
+											"    });",
+											"});",
+											"",
+											"pm.test('La base gravable de ISR descuenta ISSS y AFP del trabajador', function () {",
+											"    detalles.forEach(function (d) {",
+											"        pm.expect(Number(d.baseIsrGravable)).to.be.at.most(Number(d.totalDevengado) + TOL);",
+											"    });",
+											"});",
+											"",
+											"pm.test('Un empleado no puede aparecer dos veces en la misma nómina', function () {",
+											"    const ids = detalles.map(function (d) { return d.empleadoId; });",
+											"    pm.expect(ids.length).to.eql(new Set(ids).size);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "1.7 Error 409 - Cerrar dos veces",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_regular_id}}/cerrar",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_regular_id}}",
+										"cerrar"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('409 Conflict: solo se cierra una nómina ABIERTA', function () {",
+											"    pm.response.to.have.status(409);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "1.8 Reabrir nómina CERRADA",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_regular_id}}/reabrir",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_regular_id}}",
+										"reabrir"
+									]
+								},
+								"description": "Único retroceso permitido, para corregir novedades antes de aprobar. Borra el detalle calculado para evitar filas huérfanas."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test('Vuelve a estado ABIERTA', function () {",
+											"    pm.expect(pm.response.json().data.estado).to.eql('ABIERTA');",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "1.9 Detalle tras reabrir (se limpió)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_regular_id}}/detalle",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_regular_id}}",
+										"detalle"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Reabrir borra el detalle previo', function () {",
+											"    pm.expect(pm.response.json().data).to.be.an('array').that.is.empty;",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "1.10 Cerrar de nuevo (sin duplicados)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_regular_id}}/cerrar",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_regular_id}}",
+										"cerrar"
+									]
+								},
+								"description": "Recalcular tras reabrir no debe dejar filas duplicadas: el motor borra el detalle previo antes de recalcular."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK y vuelve a CERRADA', function () {",
+											"    pm.response.to.have.status(200);",
+											"    pm.expect(pm.response.json().data.estado).to.eql('CERRADA');",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "1.11 Aprobar nómina (punto sin retorno)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_regular_id}}/aprobar",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_regular_id}}",
+										"aprobar"
+									]
+								},
+								"description": "Exclusivo de ADMIN. Sella fechaAprobacion. A partir de aquí la nómina es inmutable (Art. 53.I CT)."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"const d = pm.response.json().data;",
+											"",
+											"pm.test('Pasa a estado APROBADA', function () {",
+											"    pm.expect(d.estado).to.eql('APROBADA');",
+											"});",
+											"",
+											"pm.test('Se sella la fecha de aprobación (trazabilidad)', function () {",
+											"    pm.expect(d.fechaAprobacion).to.not.be.null;",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "1.12 Error 409 - Reabrir una APROBADA (Art. 53.I)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_regular_id}}/reabrir",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_regular_id}}",
+										"reabrir"
+									]
+								},
+								"description": "PRUEBA CLAVE DE LA DEFENSA: una vez aprobado el pago no existe mecanismo para reducirlo retroactivamente sin caer en el supuesto del Art. 53 romano I del Código de Trabajo (reducción sin justa causa -> el trabajador puede terminar el contrato con responsabilidad patronal)."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('409 Conflict: una nómina APROBADA es inmutable', function () {",
+											"    pm.response.to.have.status(409);",
+											"});",
+											"",
+											"pm.test('El mensaje indica que ya está APROBADA', function () {",
+											"    pm.expect(pm.response.text()).to.include('APROBADA');",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "1.13 Error 409 - Aprobar dos veces",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_regular_id}}/aprobar",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_regular_id}}",
+										"aprobar"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('409 Conflict: la aprobación no es idempotente hacia adelante', function () {",
+											"    pm.response.to.have.status(409);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "1.14 Error 409 - Eliminar una APROBADA",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_regular_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_regular_id}}"
+									]
+								},
+								"description": "Solo se puede eliminar una nómina ABIERTA. Borrar una planilla ya aprobada destruiría el respaldo del pago."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('409 Conflict: solo se elimina una nómina ABIERTA', function () {",
+											"    pm.response.to.have.status(409);",
+											"});"
+										]
+									}
+								}
+							]
+						}
+					]
+				},
+				{
+					"name": "2. Nóminas especiales",
+					"description": "Quincena 25 (Ley Especial, D.L. 499 del 14 de enero de 2026), Aguinaldo (Art. 196-202 CT, reforma de octubre de 2025 al Art. 200) y Vacaciones (despacha al servicio de prestaciones de P5).",
+					"item": [
+						{
+							"name": "2.1 Crear nómina ESPECIAL - QUINCENA_25",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-01-20\",\n  \"tipo\": \"ESPECIAL\",\n  \"subtipoEspecial\": \"QUINCENA_25\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								},
+								"description": "Para ESPECIAL el 'periodo' es la fecha exacta de pago (AAAA-MM-DD), no un rango quincenal. La ventana legal de la Quincena 25 es del 15 al 25 de enero."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('201 Created', function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"",
+											"const d = pm.response.json().data;",
+											"",
+											"pm.test('tipo ESPECIAL y subtipo QUINCENA_25', function () {",
+											"    pm.expect(d.tipo).to.eql('ESPECIAL');",
+											"    pm.expect(d.subtipoEspecial).to.eql('QUINCENA_25');",
+											"});",
+											"",
+											"pm.collectionVariables.set('nomina_q25_id', d.id);"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "2.2 Cerrar QUINCENA_25",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_q25_id}}/cerrar",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_q25_id}}",
+										"cerrar"
+									]
+								},
+								"description": "Requiere al menos un empleado con salario <= $1,500 contratado antes del 20 de enero de 2026 (lo crea la petición 0.1). Si devuelve 409 'no generó ningún DetalleNomina', falta correr la subcarpeta 0. Preparación."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK y pasa a CERRADA', function () {",
+											"    pm.response.to.have.status(200);",
+											"    pm.expect(pm.response.json().data.estado).to.eql('CERRADA');",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "2.3 Detalle QUINCENA_25 (50%, exenta, solo <= $1,500)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_q25_id}}/detalle",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_q25_id}}",
+										"detalle"
+									]
+								},
+								"description": "PRUEBA CLAVE: la Ley Especial (D.L. 499/2026) define el pago como 50% del salario nominal, exento de ISSS, AFP e ISR, exclusivo para salarios <= $1,500/mes."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"const detalles = pm.response.json().data;",
+											"const TOL = 0.011;",
+											"",
+											"pm.test('Genera al menos un detalle', function () {",
+											"    pm.expect(detalles.length).to.be.above(0);",
+											"});",
+											"",
+											"pm.test('Exenta de ISSS y AFP (base y cuota en cero)', function () {",
+											"    detalles.forEach(function (d) {",
+											"        pm.expect(Number(d.baseIsss)).to.eql(0);",
+											"        pm.expect(Number(d.baseAfp)).to.eql(0);",
+											"        pm.expect(Number(d.issssTrabajador)).to.eql(0);",
+											"        pm.expect(Number(d.afpTrabajador)).to.eql(0);",
+											"        pm.expect(Number(d.issssPatronal)).to.eql(0);",
+											"        pm.expect(Number(d.afpPatronal)).to.eql(0);",
+											"    });",
+											"});",
+											"",
+											"pm.test('Exenta de ISR', function () {",
+											"    detalles.forEach(function (d) {",
+											"        pm.expect(Number(d.isr)).to.eql(0);",
+											"        pm.expect(Number(d.totalDeducciones)).to.eql(0);",
+											"    });",
+											"});",
+											"",
+											"pm.test('El líquido a pagar es el monto íntegro', function () {",
+											"    detalles.forEach(function (d) {",
+											"        pm.expect(Math.abs(Number(d.liquidoAPagar) - Number(d.totalDevengado))).to.be.below(TOL);",
+											"    });",
+											"});",
+											"",
+											"pm.test('El monto equivale al 50% del salario nominal', function () {",
+											"    detalles.forEach(function (d) {",
+											"        const esperado = Number(d.empleado.salarioBase) * 0.5;",
+											"        pm.expect(Math.abs(Number(d.totalDevengado) - esperado)).to.be.below(TOL);",
+											"    });",
+											"});",
+											"",
+											"pm.test('Ningún empleado con salario > $1,500 aparece en el detalle', function () {",
+											"    detalles.forEach(function (d) {",
+											"        pm.expect(Number(d.empleado.salarioBase)).to.be.at.most(1500);",
+											"    });",
+											"});",
+											"",
+											"pm.test('Inembargable: no se aplica ningún descuento', function () {",
+											"    detalles.forEach(function (d) {",
+											"        pm.expect(Number(d.montoDescuentos)).to.eql(0);",
+											"    });",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "2.4 Crear nómina ESPECIAL - AGUINALDO",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-12-01\",\n  \"tipo\": \"ESPECIAL\",\n  \"subtipoEspecial\": \"AGUINALDO\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								},
+								"description": "La reforma de octubre de 2025 al Art. 200 CT amplió la ventana de pago: ahora va del 20 de octubre al 20 de diciembre, a elección del patrono (antes era únicamente del 12 al 20 de diciembre)."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('201 Created', function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"",
+											"const d = pm.response.json().data;",
+											"",
+											"pm.test('subtipo AGUINALDO', function () {",
+											"    pm.expect(d.subtipoEspecial).to.eql('AGUINALDO');",
+											"});",
+											"",
+											"pm.collectionVariables.set('nomina_aguinaldo_id', d.id);"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "2.5 Cerrar AGUINALDO",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_aguinaldo_id}}/cerrar",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_aguinaldo_id}}",
+										"cerrar"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK y pasa a CERRADA', function () {",
+											"    pm.response.to.have.status(200);",
+											"    pm.expect(pm.response.json().data.estado).to.eql('CERRADA');",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "2.6 Detalle AGUINALDO (días por antigüedad, ISR sobre el exceso)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_aguinaldo_id}}/detalle",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_aguinaldo_id}}",
+										"detalle"
+									]
+								},
+								"description": "Art. 196-198 CT: 15 días (1-3 años), 19 días (3-10 años) y 21 días (10+ años); proporcional antes del año (Art. 197). Exento de ISSS/AFP; ISR solo sobre el excedente de $1,500."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"const detalles = pm.response.json().data;",
+											"const TOL = 0.02;",
+											"",
+											"pm.test('Genera al menos un detalle', function () {",
+											"    pm.expect(detalles.length).to.be.above(0);",
+											"});",
+											"",
+											"pm.test('Exento de ISSS y AFP', function () {",
+											"    detalles.forEach(function (d) {",
+											"        pm.expect(Number(d.baseIsss)).to.eql(0);",
+											"        pm.expect(Number(d.baseAfp)).to.eql(0);",
+											"        pm.expect(Number(d.issssTrabajador)).to.eql(0);",
+											"        pm.expect(Number(d.afpTrabajador)).to.eql(0);",
+											"    });",
+											"});",
+											"",
+											"pm.test('Aguinaldo <= $1,500 no paga ISR', function () {",
+											"    detalles.forEach(function (d) {",
+											"        if (Number(d.totalDevengado) <= 1500) {",
+											"            pm.expect(Number(d.isr)).to.eql(0);",
+											"            pm.expect(Number(d.baseIsrGravable)).to.eql(0);",
+											"        }",
+											"    });",
+											"});",
+											"",
+											"pm.test('Si supera $1,500, solo el excedente entra a la base gravable', function () {",
+											"    detalles.forEach(function (d) {",
+											"        if (Number(d.totalDevengado) > 1500) {",
+											"            const excedente = Number(d.totalDevengado) - 1500;",
+											"            pm.expect(Math.abs(Number(d.baseIsrGravable) - excedente)).to.be.below(TOL);",
+											"        }",
+											"    });",
+											"});",
+											"",
+											"pm.test('El monto corresponde a un número de días de ley (15, 19, 21 o proporcional)', function () {",
+											"    detalles.forEach(function (d) {",
+											"        const salarioDiario = Number(d.empleado.salarioBase) / 30;",
+											"        const dias = Number(d.totalDevengado) / salarioDiario;",
+											"        pm.expect(dias).to.be.above(0);",
+											"        pm.expect(dias).to.be.at.most(21.5);",
+											"    });",
+											"});",
+											"",
+											"pm.test('liquidoAPagar = aguinaldo - ISR', function () {",
+											"    detalles.forEach(function (d) {",
+											"        const esperado = Number(d.totalDevengado) - Number(d.isr);",
+											"        pm.expect(Math.abs(esperado - Number(d.liquidoAPagar))).to.be.below(TOL);",
+											"    });",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "2.7 Crear nómina ESPECIAL - VACACIONES",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-09-20\",\n  \"tipo\": \"ESPECIAL\",\n  \"subtipoEspecial\": \"VACACIONES\",\n  \"motivoVacaciones\": \"TERMINACION_CONTRATO\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								},
+								"description": "Se usa TERMINACION_CONTRATO porque siempre paga proporcional. Con PERIODO_NORMAL el cálculo exige que TODOS los empleados tengan 1 año y 200 días trabajados, y falla con 409 si alguno no califica (limitación conocida del motor de P5)."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('201 Created', function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"",
+											"const d = pm.response.json().data;",
+											"",
+											"pm.test('Conserva el motivo de vacaciones', function () {",
+											"    pm.expect(d.subtipoEspecial).to.eql('VACACIONES');",
+											"    pm.expect(d.motivoVacaciones).to.eql('TERMINACION_CONTRATO');",
+											"});",
+											"",
+											"pm.collectionVariables.set('nomina_vacaciones_id', d.id);"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "2.8 Cerrar VACACIONES (despacha al motor de P5)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_vacaciones_id}}/cerrar",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_vacaciones_id}}",
+										"cerrar"
+									]
+								},
+								"description": "Demuestra el despacho del ciclo de vida de P4 hacia NominaEspecialCalculoService (P5). Art. 177 CT: 15 días de vacación más el recargo del 30%."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK y pasa a CERRADA', function () {",
+											"    pm.response.to.have.status(200);",
+											"    pm.expect(pm.response.json().data.estado).to.eql('CERRADA');",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "2.9 Detalle VACACIONES (prima del 30%)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_vacaciones_id}}/detalle",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_vacaciones_id}}",
+										"detalle"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200 OK', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"const detalles = pm.response.json().data;",
+											"const TOL = 0.02;",
+											"",
+											"pm.test('Se registra el monto como prestación, no como salario', function () {",
+											"    detalles.forEach(function (d) {",
+											"        pm.expect(Number(d.montoPrestacion)).to.be.above(0);",
+											"        pm.expect(Number(d.salarioBase)).to.eql(0);",
+											"    });",
+											"});",
+											"",
+											"pm.test('Se marca como proporcional en TERMINACION_CONTRATO', function () {",
+											"    detalles.forEach(function (d) {",
+											"        pm.expect(d.prestacionProporcional).to.be.true;",
+											"    });",
+											"});",
+											"",
+											"pm.test('El monto incluye el recargo del 30% (Art. 177 CT)', function () {",
+											"    detalles.forEach(function (d) {",
+											"        const salarioDiario = Number(d.empleado.salarioBase) / 30;",
+											"        const esperado = salarioDiario * Number(d.diasPrestacion) * 1.3;",
+											"        pm.expect(Math.abs(Number(d.montoPrestacion) - esperado)).to.be.below(TOL);",
+											"    });",
+											"});"
+										]
+									}
+								}
+							]
+						}
+					]
+				},
+				{
+					"name": "3. Validaciones del DTO (400)",
+					"description": "El formato de 'periodo' y la ventana legal de pago se validan en el DTO, no solo se documentan: la ventana es 'fijo por ley', igual que el salario mínimo en el módulo de empleados.",
+					"item": [
+						{
+							"name": "3.1 REGULAR con subtipoEspecial",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-08-Q1\",\n  \"tipo\": \"REGULAR\",\n  \"subtipoEspecial\": \"AGUINALDO\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('400: una REGULAR no admite subtipoEspecial', function () {",
+											"    pm.response.to.have.status(400);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "3.2 ESPECIAL sin subtipoEspecial",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-12-01\",\n  \"tipo\": \"ESPECIAL\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('400: subtipoEspecial es obligatorio en una ESPECIAL', function () {",
+											"    pm.response.to.have.status(400);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "3.3 Periodo REGULAR mal formado",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-08\",\n  \"tipo\": \"REGULAR\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								},
+								"description": "Una REGULAR exige el formato quincenal AAAA-MM-Q1/Q2."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('400: formato de período inválido', function () {",
+											"    pm.response.to.have.status(400);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "3.4 QUINCENA_25 antes de la ventana (14 de enero)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-01-14\",\n  \"tipo\": \"ESPECIAL\",\n  \"subtipoEspecial\": \"QUINCENA_25\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('400: la ventana legal inicia el 15 de enero', function () {",
+											"    pm.response.to.have.status(400);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "3.5 QUINCENA_25 después de la ventana (26 de enero)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-01-26\",\n  \"tipo\": \"ESPECIAL\",\n  \"subtipoEspecial\": \"QUINCENA_25\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('400: la ventana legal termina el 25 de enero', function () {",
+											"    pm.response.to.have.status(400);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "3.6 AGUINALDO en el límite inferior (20 de octubre)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-10-20\",\n  \"tipo\": \"ESPECIAL\",\n  \"subtipoEspecial\": \"AGUINALDO\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								},
+								"description": "Acepta el límite inclusive. Comprueba la reforma de octubre de 2025 al Art. 200 CT: antes esta fecha habría sido inválida."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('201: el 20 de octubre es válido tras la reforma de 2025', function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"",
+											"pm.collectionVariables.set('nomina_borrar_id', pm.response.json().data.id);"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "3.7 AGUINALDO antes de la ventana (19 de octubre)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-10-19\",\n  \"tipo\": \"ESPECIAL\",\n  \"subtipoEspecial\": \"AGUINALDO\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('400: un día antes del 20 de octubre es inválido', function () {",
+											"    pm.response.to.have.status(400);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "3.8 AGUINALDO después de la ventana (21 de diciembre)",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-12-21\",\n  \"tipo\": \"ESPECIAL\",\n  \"subtipoEspecial\": \"AGUINALDO\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('400: la ventana termina el 20 de diciembre', function () {",
+											"    pm.response.to.have.status(400);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "3.9 motivoVacaciones en un AGUINALDO",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-12-05\",\n  \"tipo\": \"ESPECIAL\",\n  \"subtipoEspecial\": \"AGUINALDO\",\n  \"motivoVacaciones\": \"PERIODO_NORMAL\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								},
+								"description": "motivoVacaciones solo aplica al subtipo VACACIONES."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('400: motivoVacaciones no aplica a AGUINALDO', function () {",
+											"    pm.response.to.have.status(400);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "3.10 Error 404 - Nómina inexistente",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/999999",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"999999"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('404 Not Found', function () {",
+											"    pm.response.to.have.status(404);",
+											"});"
+										]
+									}
+								}
+							]
+						}
+					]
+				},
+				{
+					"name": "4. Control de acceso (401 / 403)",
+					"description": "Decisión de equipo del Sector 4: la ley exige trazabilidad razonable pero no dicta la jerarquía de aprobación. Aquí se demuestra la regla elegida: ADMIN y RECURSOS_HUMANOS administran el ciclo de vida, pero APROBAR es exclusivo de ADMIN por ser el punto sin retorno.",
+					"item": [
+						{
+							"name": "4.1 Error 401 - Sin token",
+							"request": {
+								"auth": {
+									"type": "noauth"
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('401 Unauthorized sin JWT', function () {",
+											"    pm.response.to.have.status(401);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "4.2 RRHH SÍ puede crear una nómina",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token_rrhh}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"periodo\": \"2026-09-Q1\",\n  \"tipo\": \"REGULAR\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/nomina",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina"
+									]
+								}
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('201: RECURSOS_HUMANOS administra el ciclo de vida', function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"",
+											"pm.collectionVariables.set('nomina_rrhh_id', pm.response.json().data.id);"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "4.3 Error 403 - RRHH NO puede aprobar",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token_rrhh",
+											"value": "{{token_rrhh}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PATCH",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_regular_id}}/aprobar",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_regular_id}}",
+										"aprobar"
+									]
+								},
+								"description": "PRUEBA CLAVE DE LA DEFENSA: el RolesGuard rechaza antes de llegar al servicio, así que devuelve 403 sin importar el estado de la nómina. Aprobar es exclusivo de ADMIN."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('403 Forbidden: aprobar es exclusivo de ADMIN', function () {",
+											"    pm.response.to.have.status(403);",
+											"});",
+											"",
+											"pm.test('No es un 409 de estado: el guard corta antes que el servicio', function () {",
+											"    pm.expect(pm.response.code).to.not.eql(409);",
+											"});"
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "4.4 Limpieza - eliminar nóminas de prueba",
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/nomina/{{nomina_rrhh_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"nomina",
+										"{{nomina_rrhh_id}}"
+									]
+								},
+								"description": "Solo funciona en estado ABIERTA. Repetir manualmente con {{nomina_borrar_id}} (la del 20 de octubre creada en 3.6) para dejar la base limpia."
+							},
+							"response": [],
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('200: se elimina una nómina ABIERTA', function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										]
+									}
+								}
+							]
+						}
+					]
+				}
+			]
 		},
 		{
 			"name": "Comprobantes",
@@ -794,6 +2916,46 @@
 		{
 			"key": "token",
 			"value": "pega_el_token_aqui",
+			"type": "string"
+		},
+		{
+			"key": "token_rrhh",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "empleado_antiguo_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "nomina_regular_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "nomina_q25_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "nomina_aguinaldo_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "nomina_vacaciones_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "nomina_rrhh_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "nomina_borrar_id",
+			"value": "",
 			"type": "string"
 		}
 	]
